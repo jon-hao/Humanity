@@ -22,7 +22,7 @@
     <link rel="icon" href="./icons/favicon-16.png" type="image/png" sizes="16x16" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=11" />
+    <link rel="stylesheet" href="./styles.css?v=12" />
   </head>
   <body>
     <div id="loginView" class="view login-view is-active">
@@ -69,19 +69,89 @@
         </label>
         <label>
           <span data-i18n="password">Password</span>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            required
-            autocomplete="current-password"
-          />
+          <div class="pwd-wrap">
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              autocomplete="current-password"
+            />
+            <button type="button" class="pwd-toggle" data-pwd-toggle aria-label="Show password">
+              <span class="pwd-eye-show" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+              </span>
+              <span class="pwd-eye-hide" hidden aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 3l18 18M10.5 10.6A3 3 0 0 0 13.4 13.5M7.1 7.3C4.7 8.7 3 12 3 12s3.5 7 10 7c1.7 0 3.2-.4 4.5-1M16.9 16.7C19.3 15.3 21 12 21 12s-3.5-7-10-7c-.7 0-1.4.1-2 .2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              </span>
+            </button>
+          </div>
         </label>
         <button type="submit" class="btn primary" id="loginBtn">
           <span class="btn-label" data-i18n="signIn">Sign in</span>
           <span class="btn-spinner" aria-hidden="true"></span>
         </button>
+        <button type="button" class="text-btn login-secondary" id="showPwdForm" data-i18n="changePassword">
+          Change password
+        </button>
         <p id="loginErr" class="err" role="alert"></p>
+      </form>
+      <form id="pwdForm" class="login-card" autocomplete="on" hidden>
+        <h1 class="brand">Humanity</h1>
+        <p class="muted" data-i18n="changePassword">Change password</p>
+        <label>
+          <span data-i18n="email">Email</span>
+          <input id="pwdEmail" name="email" type="email" required autocomplete="username" />
+        </label>
+        <label>
+          <span data-i18n="currentPassword">Current password</span>
+          <div class="pwd-wrap">
+            <input id="pwdCurrent" type="password" required autocomplete="current-password" />
+            <button type="button" class="pwd-toggle" data-pwd-toggle aria-label="Show password">
+              <span class="pwd-eye-show" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+              </span>
+              <span class="pwd-eye-hide" hidden aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 3l18 18M10.5 10.6A3 3 0 0 0 13.4 13.5M7.1 7.3C4.7 8.7 3 12 3 12s3.5 7 10 7c1.7 0 3.2-.4 4.5-1M16.9 16.7C19.3 15.3 21 12 21 12s-3.5-7-10-7c-.7 0-1.4.1-2 .2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              </span>
+            </button>
+          </div>
+        </label>
+        <label>
+          <span data-i18n="newPassword">New password</span>
+          <div class="pwd-wrap">
+            <input id="pwdNew" type="password" required autocomplete="new-password" minlength="8" />
+            <button type="button" class="pwd-toggle" data-pwd-toggle aria-label="Show password">
+              <span class="pwd-eye-show" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+              </span>
+              <span class="pwd-eye-hide" hidden aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 3l18 18M10.5 10.6A3 3 0 0 0 13.4 13.5M7.1 7.3C4.7 8.7 3 12 3 12s3.5 7 10 7c1.7 0 3.2-.4 4.5-1M16.9 16.7C19.3 15.3 21 12 21 12s-3.5-7-10-7c-.7 0-1.4.1-2 .2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              </span>
+            </button>
+          </div>
+        </label>
+        <label>
+          <span data-i18n="confirmPassword">Confirm new password</span>
+          <div class="pwd-wrap">
+            <input id="pwdConfirm" type="password" required autocomplete="new-password" minlength="8" />
+            <button type="button" class="pwd-toggle" data-pwd-toggle aria-label="Show password">
+              <span class="pwd-eye-show" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+              </span>
+              <span class="pwd-eye-hide" hidden aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 3l18 18M10.5 10.6A3 3 0 0 0 13.4 13.5M7.1 7.3C4.7 8.7 3 12 3 12s3.5 7 10 7c1.7 0 3.2-.4 4.5-1M16.9 16.7C19.3 15.3 21 12 21 12s-3.5-7-10-7c-.7 0-1.4.1-2 .2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              </span>
+            </button>
+          </div>
+        </label>
+        <button type="submit" class="btn primary" id="pwdSave">
+          <span data-i18n="savePassword">Save</span>
+        </button>
+        <button type="button" class="text-btn login-secondary" id="backToLogin" data-i18n="backToLogin">
+          Back to sign in
+        </button>
+        <p id="pwdErr" class="err" role="alert"></p>
       </form>
     </div>
 
@@ -155,7 +225,7 @@
         <button type="button" class="icon-btn" id="backBtn" title="Back" aria-label="Back">←</button>
         <h2 class="page-title" data-i18n="favorites">Favorites</h2>
         <div class="sq-select lang-select" id="langSelect" data-value="zh"></div>
-        <button type="button" class="text-btn" id="accountBtn" data-i18n="account">Account</button>
+        <button type="button" class="text-btn" id="logoutBtn" data-i18n="logout">Log out</button>
       </header>
       <div class="scroll-pane" id="favScroll">
         <div class="ptr-indicator" id="ptrFav" hidden>Release to refresh</div>
@@ -163,15 +233,11 @@
       </div>
     </div>
 
-    <div id="modal" class="modal" aria-hidden="true">
-      <div id="sheet" class="sheet" role="dialog" aria-modal="true"></div>
-    </div>
-
-    <script src="./js/config.js?v=11"></script>
-    <script src="./js/i18n.js?v=11"></script>
-    <script src="./js/api.js?v=11"></script>
-    <script src="./js/select.js?v=11"></script>
-    <script src="./js/preview.js?v=11"></script>
-    <script src="./js/app.js?v=11"></script>
+    <script src="./js/config.js?v=12"></script>
+    <script src="./js/i18n.js?v=12"></script>
+    <script src="./js/api.js?v=12"></script>
+    <script src="./js/select.js?v=12"></script>
+    <script src="./js/preview.js?v=12"></script>
+    <script src="./js/app.js?v=12"></script>
   </body>
 </html>

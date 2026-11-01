@@ -167,16 +167,29 @@ window.HumanityAPI = (function () {
     return hapi("hfav", { action: "remove", id }, { method: "POST" });
   }
 
-  async function changePassword(currentPassword, newPassword) {
-    return hapi(
-      "hauth",
-      {
+  async function changePassword(email, currentPassword, newPassword) {
+    const base = String(cfg().apiBase || "").replace(/\/$/, "");
+    if (!base) throw new Error("apiBase missing");
+    const res = await fetch(base, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        flow: "hauth",
+        app: cfg().app || "humanity",
         action: "password",
+        email,
         currentPassword,
         newPassword,
-      },
-      { method: "POST", timeout: 20000 }
-    );
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || !data.ok) {
+      throw new Error((data && data.error) || "password change failed");
+    }
+    return data;
   }
 
   return {

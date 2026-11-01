@@ -43,6 +43,9 @@ window.HumanityI18n = {
     close: "关闭",
     themeLight: "浅色",
     themeDark: "深色",
+    backToLogin: "返回登录",
+    showPassword: "显示密码",
+    hidePassword: "隐藏密码",
   },
   "zh-TW": {
     tagline: "私有影片庫 — 僅限邀請",
@@ -77,6 +80,9 @@ window.HumanityI18n = {
     close: "關閉",
     themeLight: "淺色",
     themeDark: "深色",
+    backToLogin: "返回登入",
+    showPassword: "顯示密碼",
+    hidePassword: "隱藏密碼",
   },
   en: {
     tagline: "Private video library — invite only",
@@ -111,6 +117,9 @@ window.HumanityI18n = {
     close: "Close",
     themeLight: "Light",
     themeDark: "Dark",
+    backToLogin: "Back to sign in",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
   },
 };
 

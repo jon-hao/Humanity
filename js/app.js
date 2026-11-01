@@ -20,7 +20,7 @@
     favBtn: document.getElementById("favBtn"),
     backBtn: document.getElementById("backBtn"),
     favList: document.getElementById("favList"),
-    accountBtn: document.getElementById("accountBtn"),
+    logoutBtn: document.getElementById("logoutBtn"),
     appScroll: document.getElementById("appScroll"),
     favScroll: document.getElementById("favScroll"),
     ptrApp: document.getElementById("ptrApp"),
@@ -29,8 +29,15 @@
     lang: document.getElementById("langSelect"),
     themeBtn: document.getElementById("themeBtn"),
     loginThemeBtn: document.getElementById("loginThemeBtn"),
-    modal: document.getElementById("modal"),
-    sheet: document.getElementById("sheet"),
+    showPwdForm: document.getElementById("showPwdForm"),
+    pwdForm: document.getElementById("pwdForm"),
+    pwdEmail: document.getElementById("pwdEmail"),
+    pwdCurrent: document.getElementById("pwdCurrent"),
+    pwdNew: document.getElementById("pwdNew"),
+    pwdConfirm: document.getElementById("pwdConfirm"),
+    pwdSave: document.getElementById("pwdSave"),
+    pwdErr: document.getElementById("pwdErr"),
+    backToLogin: document.getElementById("backToLogin"),
   };
 
   let sourceCtl = null;
@@ -110,89 +117,40 @@
     applyLang();
   }
 
-  function openModal(html) {
-    if (!els.modal || !els.sheet) return;
-    els.sheet.innerHTML = html;
-    els.modal.classList.add("open");
-    els.modal.setAttribute("aria-hidden", "false");
-    els.sheet.querySelectorAll("[data-close]").forEach((b) => {
-      b.addEventListener("click", closeModal);
+  function wirePwdToggles(root) {
+    (root || document).querySelectorAll("[data-pwd-toggle]").forEach((btn) => {
+      if (btn.dataset.wired) return;
+      btn.dataset.wired = "1";
+      btn.addEventListener("click", () => {
+        const wrap = btn.closest(".pwd-wrap");
+        const input = wrap && wrap.querySelector("input");
+        if (!input) return;
+        const show = input.type === "password";
+        input.type = show ? "text" : "password";
+        const eyeShow = btn.querySelector(".pwd-eye-show");
+        const eyeHide = btn.querySelector(".pwd-eye-hide");
+        if (eyeShow) eyeShow.hidden = show;
+        if (eyeHide) eyeHide.hidden = !show;
+        btn.setAttribute(
+          "aria-label",
+          show ? window.ht("hidePassword") : window.ht("showPassword")
+        );
+      });
     });
   }
 
-  function closeModal() {
-    if (!els.modal) return;
-    els.modal.classList.remove("open");
-    els.modal.setAttribute("aria-hidden", "true");
+  function showLoginCard() {
+    if (els.loginForm) els.loginForm.hidden = false;
+    if (els.pwdForm) els.pwdForm.hidden = true;
+    if (els.pwdErr) els.pwdErr.textContent = "";
   }
 
-  function openAccountSheet() {
-    const email = (window.HumanityAPI.getEmail && window.HumanityAPI.getEmail()) || "";
-    openModal(
-      '<div class="sheet-head"><h2>' +
-        escapeHtml(window.ht("account")) +
-        '</h2><button type="button" class="icon-btn" data-close aria-label="' +
-        escapeHtml(window.ht("close")) +
-        '">×</button></div><div class="account-sheet">' +
-        '<p class="account-email">' +
-        escapeHtml(email) +
-        "</p><h3 class=\"account-sub\">" +
-        escapeHtml(window.ht("changePassword")) +
-        "</h3>" +
-        '<label class="account-field"><span>' +
-        escapeHtml(window.ht("currentPassword")) +
-        '</span><input id="pwdCurrent" type="password" autocomplete="current-password" /></label>' +
-        '<label class="account-field"><span>' +
-        escapeHtml(window.ht("newPassword")) +
-        '</span><input id="pwdNew" type="password" autocomplete="new-password" /></label>' +
-        '<label class="account-field"><span>' +
-        escapeHtml(window.ht("confirmPassword")) +
-        '</span><input id="pwdConfirm" type="password" autocomplete="new-password" /></label>' +
-        '<p id="pwdErr" class="err" role="alert"></p>' +
-        '<button type="button" class="btn primary" id="pwdSave">' +
-        escapeHtml(window.ht("savePassword")) +
-        "</button>" +
-        '<button type="button" class="text-btn account-logout" id="accountLogout">' +
-        escapeHtml(window.ht("logout")) +
-        "</button></div>"
-    );
-    const err = els.sheet.querySelector("#pwdErr");
-    const save = els.sheet.querySelector("#pwdSave");
-    const logoutBtn = els.sheet.querySelector("#accountLogout");
-    if (save) {
-      save.addEventListener("click", async () => {
-        err.textContent = "";
-        const cur = els.sheet.querySelector("#pwdCurrent").value;
-        const next = els.sheet.querySelector("#pwdNew").value;
-        const conf = els.sheet.querySelector("#pwdConfirm").value;
-        if (next.length < 8) {
-          err.textContent = window.ht("passwordTooShort");
-          return;
-        }
-        if (next !== conf) {
-          err.textContent = window.ht("passwordMismatch");
-          return;
-        }
-        save.disabled = true;
-        try {
-          await window.HumanityAPI.changePassword(cur, next);
-          err.textContent = window.ht("passwordChanged");
-          els.sheet.querySelector("#pwdCurrent").value = "";
-          els.sheet.querySelector("#pwdNew").value = "";
-          els.sheet.querySelector("#pwdConfirm").value = "";
-        } catch (e) {
-          err.textContent = String(e.message || e);
-        } finally {
-          save.disabled = false;
-        }
-      });
-    }
-    if (logoutBtn) {
-      logoutBtn.addEventListener("click", async () => {
-        await window.HumanityAPI.logout();
-        closeModal();
-        show("login");
-      });
+  function showPwdCard() {
+    if (els.loginForm) els.loginForm.hidden = true;
+    if (els.pwdForm) els.pwdForm.hidden = false;
+    if (els.loginErr) els.loginErr.textContent = "";
+    if (els.pwdEmail && els.email && !els.pwdEmail.value) {
+      els.pwdEmail.value = els.email.value;
     }
   }
 
@@ -620,25 +578,64 @@
     );
   }
 
+  wirePwdToggles(document);
+  showLoginCard();
+
+  if (els.showPwdForm) {
+    els.showPwdForm.addEventListener("click", showPwdCard);
+  }
+  if (els.backToLogin) {
+    els.backToLogin.addEventListener("click", showLoginCard);
+  }
+  if (els.pwdForm) {
+    els.pwdForm.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      if (!els.pwdSave) return;
+      els.pwdErr.textContent = "";
+      const email = els.pwdEmail.value.trim();
+      const cur = els.pwdCurrent.value;
+      const next = els.pwdNew.value;
+      const conf = els.pwdConfirm.value;
+      if (next.length < 8) {
+        els.pwdErr.textContent = window.ht("passwordTooShort");
+        return;
+      }
+      if (next !== conf) {
+        els.pwdErr.textContent = window.ht("passwordMismatch");
+        return;
+      }
+      els.pwdSave.disabled = true;
+      try {
+        await window.HumanityAPI.changePassword(email, cur, next);
+        els.pwdErr.textContent = window.ht("passwordChanged");
+        els.pwdCurrent.value = "";
+        els.pwdNew.value = "";
+        els.pwdConfirm.value = "";
+        if (els.email) els.email.value = email;
+        setTimeout(showLoginCard, 800);
+      } catch (err) {
+        els.pwdErr.textContent = String(err.message || err);
+      } finally {
+        els.pwdSave.disabled = false;
+      }
+    });
+  }
+
   els.loginForm.addEventListener("submit", onLogin);
   els.searchForm.addEventListener("submit", (e) =>
     runSearch(e, { reset: true })
   );
   els.favBtn.addEventListener("click", openFavorites);
   els.backBtn.addEventListener("click", () => show("app"));
-  if (els.accountBtn) {
-    els.accountBtn.addEventListener("click", openAccountSheet);
+  if (els.logoutBtn) {
+    els.logoutBtn.addEventListener("click", async () => {
+      await window.HumanityAPI.logout();
+      showLoginCard();
+      show("login");
+    });
   }
   if (els.themeBtn) els.themeBtn.addEventListener("click", toggleTheme);
   if (els.loginThemeBtn) els.loginThemeBtn.addEventListener("click", toggleTheme);
-  if (els.modal) {
-    els.modal.addEventListener("click", (e) => {
-      if (e.target === els.modal) closeModal();
-    });
-  }
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeModal();
-  });
 
   if (els.pagePrev) {
     els.pagePrev.addEventListener("click", () => {

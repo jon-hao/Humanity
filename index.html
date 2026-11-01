@@ -22,7 +22,7 @@
     <link rel="icon" href="./icons/favicon-16.png" type="image/png" sizes="16x16" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=12" />
+    <link rel="stylesheet" href="./styles.css?v=13" />
   </head>
   <body>
     <div id="loginView" class="view login-view is-active">
@@ -156,11 +156,68 @@
     </div>
 
     <div id="appView" class="view app-view" hidden>
-      <header class="top">
-        <button type="button" class="icon-btn" id="favBtn" title="Favorites" aria-label="Favorites">
-          ★
+      <header class="top site-top">
+        <button
+          type="button"
+          class="icon-btn icon-only top-profile"
+          id="profileBtn"
+          title="Profile"
+          aria-label="Profile"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <circle
+              cx="12"
+              cy="8"
+              r="3.2"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+            />
+            <path
+              d="M5.5 19.2c1.6-3.2 4-4.8 6.5-4.8s4.9 1.6 6.5 4.8"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
         </button>
-        <form id="searchForm" class="search-bar" autocomplete="off">
+        <h1 class="top-brand">Humanity</h1>
+        <div class="top-tools">
+          <div class="sq-select lang-select" id="langSelect" data-value="zh"></div>
+          <button
+            type="button"
+            class="icon-btn icon-only"
+            id="themeBtn"
+            aria-label="Theme"
+            title="Theme"
+          >
+            <span class="theme-icon theme-sun" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.6" />
+                <path
+                  d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8l1.8-1.8M18 6l1.8-1.8"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </span>
+            <span class="theme-icon theme-moon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path
+                  d="M18.5 14.2A7.2 7.2 0 0 1 9.8 5.5 7.5 7.5 0 1 0 18.5 14.2z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+          </button>
+        </div>
+        <form id="searchForm" class="search-bar top-search" autocomplete="off">
           <div class="sq-select" id="sourceSelect" data-value="all"></div>
           <input
             id="q"
@@ -176,37 +233,6 @@
             data-form-type="other"
           />
         </form>
-        <button
-          type="button"
-          class="icon-btn icon-only"
-          id="themeBtn"
-          aria-label="Theme"
-          title="Theme"
-        >
-          <span class="theme-icon theme-sun" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="20" height="20">
-              <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.6" />
-              <path
-                d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8l1.8-1.8M18 6l1.8-1.8"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-              />
-            </svg>
-          </span>
-          <span class="theme-icon theme-moon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="20" height="20">
-              <path
-                d="M18.5 14.2A7.2 7.2 0 0 1 9.8 5.5 7.5 7.5 0 1 0 18.5 14.2z"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </span>
-        </button>
       </header>
       <div class="scroll-pane" id="appScroll">
         <div class="ptr-indicator" id="ptrApp" hidden>Release to refresh</div>
@@ -221,10 +247,9 @@
     </div>
 
     <div id="favView" class="view fav-view" hidden>
-      <header class="top">
+      <header class="top fav-top">
         <button type="button" class="icon-btn" id="backBtn" title="Back" aria-label="Back">←</button>
         <h2 class="page-title" data-i18n="favorites">Favorites</h2>
-        <div class="sq-select lang-select" id="langSelect" data-value="zh"></div>
         <button type="button" class="text-btn" id="logoutBtn" data-i18n="logout">Log out</button>
       </header>
       <div class="scroll-pane" id="favScroll">
@@ -233,11 +258,11 @@
       </div>
     </div>
 
-    <script src="./js/config.js?v=12"></script>
-    <script src="./js/i18n.js?v=12"></script>
-    <script src="./js/api.js?v=12"></script>
-    <script src="./js/select.js?v=12"></script>
-    <script src="./js/preview.js?v=12"></script>
-    <script src="./js/app.js?v=12"></script>
+    <script src="./js/config.js?v=13"></script>
+    <script src="./js/i18n.js?v=13"></script>
+    <script src="./js/api.js?v=13"></script>
+    <script src="./js/select.js?v=13"></script>
+    <script src="./js/preview.js?v=13"></script>
+    <script src="./js/app.js?v=13"></script>
   </body>
 </html>

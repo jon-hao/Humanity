@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no"
+    />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Humanity</title>
+    <link rel="stylesheet" href="./styles.css?v=1" />
+  </head>
+  <body>
+    <div id="loginView" class="view login-view" hidden>
+      <form id="loginForm" class="login-card" autocomplete="on">
+        <h1 class="brand">Humanity</h1>
+        <p class="muted">Private aggregator — invite only</p>
+        <label>
+          Email
+          <input id="email" name="email" type="email" required autocomplete="username" />
+        </label>
+        <label>
+          Password
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            autocomplete="current-password"
+          />
+        </label>
+        <button type="submit" class="btn primary">Sign in</button>
+        <p id="loginErr" class="err" role="alert"></p>
+      </form>
+    </div>
+
+    <div id="appView" class="view app-view" hidden>
+      <header class="top">
+        <button type="button" class="icon-btn" id="favBtn" title="Favorites">★</button>
+        <form id="searchForm" class="search-bar">
+          <select id="source" aria-label="Source">
+            <option value="all">All sources</option>
+            <option value="pornhub">Pornhub</option>
+            <option value="xvideos">XVideos</option>
+            <option value="eporner">Eporner</option>
+          </select>
+          <input id="q" type="search" placeholder="Search…" enterkeyhint="search" required />
+          <button type="submit" class="btn primary">Go</button>
+        </form>
+        <button type="button" class="icon-btn" id="logoutBtn" title="Log out">⎋</button>
+      </header>
+      <p id="status" class="status"></p>
+      <main id="results" class="grid" aria-live="polite"></main>
+    </div>
+
+    <div id="favView" class="view fav-view" hidden>
+      <header class="top">
+        <button type="button" class="icon-btn" id="backBtn" title="Back">←</button>
+        <h2 class="page-title">Favorites</h2>
+        <span class="spacer"></span>
+      </header>
+      <main id="favList" class="grid"></main>
+    </div>
+
+    <script src="./js/config.js?v=1"></script>
+    <script src="./js/api.js?v=1"></script>
+    <script src="./js/preview.js?v=1"></script>
+    <script src="./js/app.js?v=1"></script>
+  </body>
+</html>

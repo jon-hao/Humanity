@@ -317,7 +317,12 @@
           }
 
           const isMedia =
-            stream && /\.(mp4|webm|m3u8)(\?|#|$)/i.test(stream);
+            stream &&
+            /^https?:/i.test(stream) &&
+            (/\.(mp4|webm|m3u8)(\?|#|$)/i.test(stream) ||
+              /\/dload\/[^/]+\/\d{3,4}\/?/i.test(stream) ||
+              /\/hls\//i.test(stream) ||
+              /get_media\?/i.test(stream));
           // 一律优先最高清直链 <video>；失败再回退 embed
           if (isMedia) {
             mountVideo(stream, embed, quality);

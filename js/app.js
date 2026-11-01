@@ -20,20 +20,28 @@
     favBtn: document.getElementById("favBtn"),
     backBtn: document.getElementById("backBtn"),
     favList: document.getElementById("favList"),
-    logoutBtn: document.getElementById("logoutBtn"),
+    accountBtn: document.getElementById("accountBtn"),
     appScroll: document.getElementById("appScroll"),
     favScroll: document.getElementById("favScroll"),
     ptrApp: document.getElementById("ptrApp"),
     ptrFav: document.getElementById("ptrFav"),
+    loginLang: document.getElementById("loginLangSelect"),
+    lang: document.getElementById("langSelect"),
+    themeBtn: document.getElementById("themeBtn"),
+    loginThemeBtn: document.getElementById("loginThemeBtn"),
+    modal: document.getElementById("modal"),
+    sheet: document.getElementById("sheet"),
   };
 
   let sourceCtl = null;
+  let loginLangCtl = null;
+  let langCtl = null;
   let loggingIn = false;
   let page = 1;
   let hasMore = false;
   let lastQuery = "";
   let syncingUrl = false;
-  let sourceOptions = [{ value: "all", label: "All" }];
+  let sourceOptions = [{ value: "all", label: "All sources" }];
   const PLAY_STORE_PREFIX = "humanity-play:";
 
   function escapeHtml(s) {
@@ -42,6 +50,149 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function langOptions() {
+    return [
+      { value: "zh", label: "简体中文" },
+      { value: "zh-TW", label: "繁體中文" },
+      { value: "en", label: "English" },
+    ];
+  }
+
+  function applyTheme() {
+    const theme = window.HumanityState.theme || "dark";
+    document.documentElement.setAttribute("data-theme", theme);
+    const title =
+      theme === "dark" ? window.ht("themeLight") : window.ht("themeDark");
+    [els.themeBtn, els.loginThemeBtn].forEach((btn) => {
+      if (!btn) return;
+      btn.title = title;
+      btn.setAttribute("aria-label", title);
+    });
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", theme === "light" ? "#f2eee8" : "#0c0f14");
+  }
+
+  function toggleTheme() {
+    window.HumanityState.theme =
+      window.HumanityState.theme === "dark" ? "light" : "dark";
+    localStorage.setItem("humanity-theme", window.HumanityState.theme);
+    applyTheme();
+  }
+
+  function applyLang() {
+    const lang = window.HumanityState.lang || "zh";
+    document.documentElement.lang =
+      lang === "zh-TW" ? "zh-TW" : lang === "en" ? "en" : "zh-CN";
+    document.querySelectorAll("[data-i18n]").forEach((node) => {
+      node.textContent = window.ht(node.getAttribute("data-i18n"));
+    });
+    if (els.q) els.q.placeholder = window.ht("search");
+    if (els.favBtn) {
+      els.favBtn.title = window.ht("favorites");
+      els.favBtn.setAttribute("aria-label", window.ht("favorites"));
+    }
+    if (els.backBtn) {
+      els.backBtn.title = window.ht("back");
+      els.backBtn.setAttribute("aria-label", window.ht("back"));
+    }
+    if (loginLangCtl) loginLangCtl.refresh(langOptions(), lang);
+    if (langCtl) langCtl.refresh(langOptions(), lang);
+    applyTheme();
+    updatePager();
+  }
+
+  function setLang(v) {
+    window.HumanityState.lang = v || "zh";
+    localStorage.setItem("humanity-lang", window.HumanityState.lang);
+    applyLang();
+  }
+
+  function openModal(html) {
+    if (!els.modal || !els.sheet) return;
+    els.sheet.innerHTML = html;
+    els.modal.classList.add("open");
+    els.modal.setAttribute("aria-hidden", "false");
+    els.sheet.querySelectorAll("[data-close]").forEach((b) => {
+      b.addEventListener("click", closeModal);
+    });
+  }
+
+  function closeModal() {
+    if (!els.modal) return;
+    els.modal.classList.remove("open");
+    els.modal.setAttribute("aria-hidden", "true");
+  }
+
+  function openAccountSheet() {
+    const email = (window.HumanityAPI.getEmail && window.HumanityAPI.getEmail()) || "";
+    openModal(
+      '<div class="sheet-head"><h2>' +
+        escapeHtml(window.ht("account")) +
+        '</h2><button type="button" class="icon-btn" data-close aria-label="' +
+        escapeHtml(window.ht("close")) +
+        '">×</button></div><div class="account-sheet">' +
+        '<p class="account-email">' +
+        escapeHtml(email) +
+        "</p><h3 class=\"account-sub\">" +
+        escapeHtml(window.ht("changePassword")) +
+        "</h3>" +
+        '<label class="account-field"><span>' +
+        escapeHtml(window.ht("currentPassword")) +
+        '</span><input id="pwdCurrent" type="password" autocomplete="current-password" /></label>' +
+        '<label class="account-field"><span>' +
+        escapeHtml(window.ht("newPassword")) +
+        '</span><input id="pwdNew" type="password" autocomplete="new-password" /></label>' +
+        '<label class="account-field"><span>' +
+        escapeHtml(window.ht("confirmPassword")) +
+        '</span><input id="pwdConfirm" type="password" autocomplete="new-password" /></label>' +
+        '<p id="pwdErr" class="err" role="alert"></p>' +
+        '<button type="button" class="btn primary" id="pwdSave">' +
+        escapeHtml(window.ht("savePassword")) +
+        "</button>" +
+        '<button type="button" class="text-btn account-logout" id="accountLogout">' +
+        escapeHtml(window.ht("logout")) +
+        "</button></div>"
+    );
+    const err = els.sheet.querySelector("#pwdErr");
+    const save = els.sheet.querySelector("#pwdSave");
+    const logoutBtn = els.sheet.querySelector("#accountLogout");
+    if (save) {
+      save.addEventListener("click", async () => {
+        err.textContent = "";
+        const cur = els.sheet.querySelector("#pwdCurrent").value;
+        const next = els.sheet.querySelector("#pwdNew").value;
+        const conf = els.sheet.querySelector("#pwdConfirm").value;
+        if (next.length < 8) {
+          err.textContent = window.ht("passwordTooShort");
+          return;
+        }
+        if (next !== conf) {
+          err.textContent = window.ht("passwordMismatch");
+          return;
+        }
+        save.disabled = true;
+        try {
+          await window.HumanityAPI.changePassword(cur, next);
+          err.textContent = window.ht("passwordChanged");
+          els.sheet.querySelector("#pwdCurrent").value = "";
+          els.sheet.querySelector("#pwdNew").value = "";
+          els.sheet.querySelector("#pwdConfirm").value = "";
+        } catch (e) {
+          err.textContent = String(e.message || e);
+        } finally {
+          save.disabled = false;
+        }
+      });
+    }
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", async () => {
+        await window.HumanityAPI.logout();
+        closeModal();
+        show("login");
+      });
+    }
   }
 
   function sourceValue() {
@@ -132,7 +283,7 @@
         <h3 class="title">${escapeHtml(item.title || "")}</h3>
         <div class="card-actions">
           <button type="button" class="btn ${saved ? "danger" : ""}" data-fav>${
-            saved ? "Unsave" : "Save"
+            saved ? window.ht("unsave") : window.ht("save")
           }</button>
         </div>
       </div>
@@ -164,7 +315,9 @@
     if (!els.pager) return;
     const showPager = !!lastQuery && (page > 1 || hasMore);
     els.pager.hidden = !showPager;
-    if (els.pageLabel) els.pageLabel.textContent = "Page " + page;
+    if (els.pageLabel) {
+      els.pageLabel.textContent = window.ht("page") + " " + page;
+    }
     if (els.pagePrev) els.pagePrev.disabled = page <= 1;
     if (els.pageNext) els.pageNext.disabled = !hasMore;
   }
@@ -192,11 +345,11 @@
             } else if (favBtn.classList.contains("danger")) {
               await window.HumanityAPI.removeFavorite(item.id);
               favBtn.classList.remove("danger");
-              favBtn.textContent = "Save";
+              favBtn.textContent = window.ht("save");
             } else {
               await window.HumanityAPI.addFavorite(item);
               favBtn.classList.add("danger");
-              favBtn.textContent = "Unsave";
+              favBtn.textContent = window.ht("unsave");
             }
           } catch (err) {
             alert(String(err.message || err));
@@ -218,7 +371,7 @@
     if (reset) page = 1;
     lastQuery = q;
     if (!fromUrl) writeRoute(q, page, !!opts && opts.replaceUrl);
-    els.status.textContent = "Searching…";
+    els.status.textContent = "…";
     els.results.innerHTML = '<div class="skel"></div>'.repeat(8);
     updatePager();
     try {
@@ -233,20 +386,23 @@
                 .join(" · ")
             : "";
         els.results.innerHTML =
-          '<div class="empty">No results' +
+          '<div class="empty">—</div>' +
           (errBits
-            ? "<br/><span class='tiny'>" + escapeHtml(errBits) + "</span>"
-            : "") +
-          "</div>";
-        els.status.textContent = page > 1 ? "Page " + page + " empty" : "";
+            ? "<div class='empty tiny'>" + escapeHtml(errBits) + "</div>"
+            : "");
+        els.status.textContent = "";
         updatePager();
         return;
       }
       els.status.textContent =
         items.length +
-        " results · page " +
+        " " +
+        window.ht("results") +
+        " · " +
+        window.ht("page") +
+        " " +
         page +
-        (d.errors ? " (partial)" : "");
+        (d.errors ? window.ht("partial") : "");
       els.results.innerHTML = items.map((i) => cardHtml(i)).join("");
       wireCards(els.results, items, "search");
       updatePager();
@@ -268,7 +424,8 @@
       const d = await window.HumanityAPI.listFavorites();
       const items = (d && d.items) || [];
       if (!items.length) {
-        els.favList.innerHTML = '<div class="empty">No favorites yet</div>';
+        els.favList.innerHTML =
+          '<div class="empty">' + escapeHtml(window.ht("noFavorites")) + "</div>";
         return;
       }
       els.favList.innerHTML = items
@@ -306,7 +463,7 @@
         if (dy > 12 && pane.scrollTop <= 0) {
           indicator.hidden = false;
           indicator.textContent =
-            dy > 70 ? "Release to refresh" : "Pull to refresh";
+            dy > 70 ? window.ht("releaseRefresh") : window.ht("pullRefresh");
           indicator.style.setProperty("--ptr-y", Math.min(56, dy * 0.35) + "px");
           if (dy > 70 && e.cancelable) e.preventDefault();
         }
@@ -325,7 +482,7 @@
         if (dy > 70 && pane.scrollTop <= 0 && !refreshing) {
           refreshing = true;
           indicator.hidden = false;
-          indicator.textContent = "Refreshing…";
+          indicator.textContent = window.ht("refreshing");
           try {
             await onRefresh();
           } finally {
@@ -364,12 +521,16 @@
             value: String(o.value),
             label: String(o.label || o.value),
           }))
-        : [{ value: "all", label: "All" }];
+        : [{ value: "all", label: "All sources" }];
     const initial =
       selected && sourceOptions.some((o) => o.value === selected)
         ? selected
         : sourceOptions[0].value;
     if (!els.sourceSelect) return;
+    if (sourceCtl && typeof sourceCtl.refresh === "function") {
+      sourceCtl.refresh(sourceOptions, initial);
+      return;
+    }
     sourceCtl = window.HumanitySelect.mount(
       els.sourceSelect,
       sourceOptions,
@@ -380,7 +541,7 @@
 
   async function loadSources(preferred) {
     const d = await window.HumanityAPI.meta();
-    mountSources((d && d.sources) || sourceOptions, preferred);
+    mountSources((d && d.sources) || sourceOptions, preferred || sourceValue());
   }
 
   async function onLogin(ev) {
@@ -411,6 +572,8 @@
   }
 
   async function boot() {
+    applyTheme();
+    applyLang();
     const route = readRoute();
     mountSources(sourceOptions, route.source || "all");
     if (window.HumanityAPI.getToken()) {
@@ -438,15 +601,41 @@
     show("login");
   }
 
+  if (els.loginLang) {
+    loginLangCtl = window.HumanitySelect.mount(
+      els.loginLang,
+      langOptions(),
+      window.HumanityState.lang,
+      setLang
+    );
+  }
+  if (els.lang) {
+    langCtl = window.HumanitySelect.mount(
+      els.lang,
+      langOptions(),
+      window.HumanityState.lang,
+      setLang
+    );
+  }
+
   els.loginForm.addEventListener("submit", onLogin);
   els.searchForm.addEventListener("submit", (e) =>
     runSearch(e, { reset: true })
   );
   els.favBtn.addEventListener("click", openFavorites);
   els.backBtn.addEventListener("click", () => show("app"));
-  els.logoutBtn.addEventListener("click", async () => {
-    await window.HumanityAPI.logout();
-    show("login");
+  if (els.accountBtn) {
+    els.accountBtn.addEventListener("click", openAccountSheet);
+  }
+  if (els.themeBtn) els.themeBtn.addEventListener("click", toggleTheme);
+  if (els.loginThemeBtn) els.loginThemeBtn.addEventListener("click", toggleTheme);
+  if (els.modal) {
+    els.modal.addEventListener("click", (e) => {
+      if (e.target === els.modal) closeModal();
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeModal();
   });
 
   if (els.pagePrev) {

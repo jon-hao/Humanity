@@ -437,6 +437,38 @@
           hls.nextLevel = max;
         }
 
+        function openExternalPage(url) {
+          if (!url) return false;
+          try {
+            window.open(url, "_blank", "noopener");
+            return true;
+          } catch (_) {
+            return false;
+          }
+        }
+
+        function showMissavFallback(msg) {
+          const page = (playCtx && playCtx.page) || "";
+          stage.classList.remove("has-media");
+          showChrome(true);
+          clearMedia();
+          const gate = document.createElement("div");
+          gate.className = "gate";
+          gate.innerHTML =
+            "<h1>" +
+            esc(title) +
+            "</h1><p>" +
+            esc(msg || "Stream blocked by CDN") +
+            "</p>" +
+            (page
+              ? '<p><a href="' +
+                esc(page) +
+                '" target="_blank" rel="noopener">Open on source</a></p>'
+              : '<p><a href="./">Back</a></p>');
+          stage.appendChild(gate);
+          if (page) openExternalPage(page);
+        }
+
         function mountVideo(src, fallbackEmbed) {
           destroyHls();
           stage.classList.add("has-media");
@@ -454,7 +486,15 @@
             fellBack = true;
             destroyHls();
             if (fallbackEmbed) mountIframe(fallbackEmbed);
-            else showGate("Video stream unavailable");
+            else if (
+              playCtx &&
+              (playCtx.source === "ch4" ||
+                /missav|surrit/i.test(
+                  String(playCtx.source || "") + String(playCtx.page || "")
+                ))
+            ) {
+              showMissavFallback("Video stream unavailable");
+            } else showGate("Video stream unavailable");
           };
           video.addEventListener("error", onFail);
           stage.appendChild(video);

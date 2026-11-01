@@ -155,6 +155,29 @@ window.HumanityAPI = (function () {
     );
   }
 
+  /** MissAV/surrit 等需经 HApi hmedia 同源代理的媒体地址 */
+  function mediaUrl(upstream) {
+    const base = String(cfg().apiBase || "").replace(/\/$/, "");
+    const u = String(upstream || "").trim();
+    if (!base || !u) return u;
+    if (/[?&]flow=hmedia\b/i.test(u)) return u;
+    const token = getToken();
+    const qs = new URLSearchParams({
+      flow: "hmedia",
+      app: cfg().app || "humanity",
+      u: u,
+    });
+    if (token) qs.set("token", token);
+    return base + "?" + qs.toString();
+  }
+
+  function needsMediaProxy(url, meta) {
+    if (meta && meta.proxy) return true;
+    const s = String(url || "");
+    const src = String((meta && meta.source) || "");
+    return /surrit\.com/i.test(s) || src === "ch4" || /missav/i.test(src);
+  }
+
   async function listFavorites() {
     return hapi("hfav", { action: "list" }, { method: "POST" });
   }
@@ -227,6 +250,8 @@ window.HumanityAPI = (function () {
     meta,
     search,
     resolvePlay,
+    mediaUrl,
+    needsMediaProxy,
     related,
     listFavorites,
     addFavorite,

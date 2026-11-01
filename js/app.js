@@ -320,7 +320,7 @@
       <button type="button" class="thumb-btn" data-open data-thumb="${escapeHtml(
         thumb
       )}" data-preview="${escapeHtml(preview)}">
-        <img src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async" data-fallback />
+        <img src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fallback />
         <span class="src-tag">${escapeHtml(channel)}</span>
         ${
           quality

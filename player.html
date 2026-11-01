@@ -307,9 +307,9 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=20"></script>
-    <script src="./js/api.js?v=20"></script>
-    <script src="./js/preview.js?v=20"></script>
+    <script src="./js/config.js?v=21"></script>
+    <script src="./js/api.js?v=21"></script>
+    <script src="./js/preview.js?v=21"></script>
   </head>
   <body>
     <div class="stage" id="stage">
@@ -692,7 +692,7 @@
             '">' +
             '<img src="' +
             esc(thumb) +
-            '" alt="" loading="lazy" decoding="async" data-fallback />' +
+            '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fallback />' +
             (channel
               ? '<span class="src-tag">' + esc(channel) + "</span>"
               : "") +
@@ -913,6 +913,13 @@
             if (d && d.source) {
               source = d.source;
               playCtx.source = d.source;
+            }
+            if (
+              stream &&
+              window.HumanityAPI.needsMediaProxy &&
+              window.HumanityAPI.needsMediaProxy(stream, d)
+            ) {
+              stream = window.HumanityAPI.mediaUrl(stream);
             }
           } catch (err) {
             if (err && err.code === 401) {

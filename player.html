@@ -168,38 +168,136 @@
       }
       .related-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 10px;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
       }
-      .related-card {
-        border: 0;
-        padding: 0;
-        background: transparent;
-        color: inherit;
-        text-align: left;
-        cursor: pointer;
+      .related-grid .card {
+        background: #151a22;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
       }
-      .related-card img {
+      .related-grid .thumb-btn {
+        position: relative;
+        display: block;
         width: 100%;
+        padding: 0;
+        border: 0;
+        background: #000;
+        cursor: pointer;
         aspect-ratio: 16 / 10;
+        overflow: hidden;
+      }
+      .related-grid .thumb-btn img {
+        width: 100%;
+        height: 100%;
         object-fit: cover;
-        border-radius: 8px;
-        background: #111;
         display: block;
       }
-      .related-card .rt {
-        margin: 6px 0 0;
-        font-size: 0.75rem;
-        line-height: 1.3;
+      .related-grid .thumb-btn img.thumb-broken {
+        display: none !important;
+      }
+      .related-grid .thumb-btn.no-thumb {
+        background: #11161f;
+      }
+      .related-grid .thumb-btn .preview-video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: none;
+        background: #000;
+        pointer-events: none;
+      }
+      .related-grid .thumb-btn.is-previewing .preview-video {
+        display: block;
+      }
+      .related-grid .thumb-btn.is-previewing img {
+        opacity: 0;
+      }
+      .related-grid .src-tag {
+        position: absolute;
+        left: 8px;
+        bottom: 8px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 3px 7px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.65);
+        color: #9ec1ff;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .related-grid .quality-badge {
+        position: absolute;
+        right: 8px;
+        top: 8px;
+        font-size: 0.68rem;
+        font-weight: 800;
+        padding: 3px 7px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.72);
+        color: #e8a05c;
+        pointer-events: none;
+      }
+      .related-grid .duration-badge {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 3px 7px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.72);
+        color: #e8eef8;
+        font-variant-numeric: tabular-nums;
+        pointer-events: none;
+      }
+      .related-grid .card-body {
+        padding: 10px;
+        display: grid;
+        gap: 8px;
+      }
+      .related-grid .title {
+        margin: 0;
+        font-size: 0.85rem;
+        line-height: 1.35;
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
+        min-height: 2.7em;
       }
-      .related-meta {
-        margin-top: 4px;
-        font-size: 0.68rem;
-        color: #8b97ab;
+      .related-grid .card-actions {
+        display: flex;
+        gap: 6px;
+      }
+      .related-grid .btn {
+        flex: 1;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: #1b2230;
+        color: #e8eef8;
+        border-radius: 8px;
+        padding: 8px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .related-grid .btn.ghost {
+        background: transparent;
+      }
+      .related-grid .btn.danger {
+        background: rgba(255, 80, 100, 0.22);
+        border-color: rgba(255, 107, 138, 0.45);
+      }
+      .related-grid .btn-open {
+        flex: 0 0 auto;
+        min-width: 42px;
+        padding-left: 10px;
+        padding-right: 10px;
       }
       .related-empty {
         text-align: center;
@@ -209,8 +307,9 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=19"></script>
-    <script src="./js/api.js?v=19"></script>
+    <script src="./js/config.js?v=20"></script>
+    <script src="./js/api.js?v=20"></script>
+    <script src="./js/preview.js?v=20"></script>
   </head>
   <body>
     <div class="stage" id="stage">
@@ -528,13 +627,17 @@
           if (relatedSheet) relatedSheet.hidden = true;
         }
 
+        function playerHref(item) {
+          stashItem(item);
+          const u = new URL("player.html", location.href);
+          if (item.id) u.searchParams.set("id", item.id);
+          if (item.title) u.searchParams.set("title", item.title);
+          return u.href;
+        }
+
         function openRelatedCard(item) {
           if (!item || !item.id) return;
-          stashItem(item);
-          const u = new URL(location.href);
-          u.searchParams.set("id", item.id);
-          if (item.title) u.searchParams.set("title", item.title);
-          location.href = u.href;
+          location.href = playerHref(item);
         }
 
         function t(key) {
@@ -545,22 +648,183 @@
               loading: "加载中…",
               empty: "暂无相关影片",
               fail: "加载失败",
+              save: "收藏",
+              unsave: "取消收藏",
+              openWindow: "新窗口",
             },
             "zh-TW": {
               related: "相關推薦",
               loading: "載入中…",
               empty: "尚無相關影片",
               fail: "載入失敗",
+              save: "收藏",
+              unsave: "取消收藏",
+              openWindow: "新視窗",
             },
             en: {
               related: "Related",
               loading: "Loading…",
               empty: "No related videos",
               fail: "Failed to load",
+              save: "Save",
+              unsave: "Unsave",
+              openWindow: "New window",
             },
           };
           const table = pack[lang] || pack.zh;
           return table[key] || pack.en[key] || key;
+        }
+
+        function relatedCardHtml(item) {
+          const thumb = item.thumb || "";
+          const preview = item.preview || thumb;
+          const channel = item.sourceLabel || item.source || "";
+          const duration = item.duration ? String(item.duration) : "";
+          const quality = item.quality ? String(item.quality) : "";
+          return (
+            '<article class="card" data-id="' +
+            esc(item.id) +
+            '">' +
+            '<button type="button" class="thumb-btn" data-open data-thumb="' +
+            esc(thumb) +
+            '" data-preview="' +
+            esc(preview) +
+            '">' +
+            '<img src="' +
+            esc(thumb) +
+            '" alt="" loading="lazy" decoding="async" data-fallback />' +
+            (channel
+              ? '<span class="src-tag">' + esc(channel) + "</span>"
+              : "") +
+            (quality
+              ? '<span class="quality-badge">' + esc(quality) + "</span>"
+              : "") +
+            (duration
+              ? '<span class="duration-badge">' + esc(duration) + "</span>"
+              : "") +
+            "</button>" +
+            '<div class="card-body">' +
+            '<h3 class="title">' +
+            esc(item.title || "") +
+            "</h3>" +
+            '<div class="card-actions">' +
+            '<button type="button" class="btn" data-fav>' +
+            esc(t("save")) +
+            "</button>" +
+            '<button type="button" class="btn ghost btn-open" data-open-tab title="' +
+            esc(t("openWindow")) +
+            '" aria-label="' +
+            esc(t("openWindow")) +
+            '">↗</button>' +
+            "</div></div></article>"
+          );
+        }
+
+        function wireRelatedThumbFallback(root) {
+          root.querySelectorAll("img[data-fallback]").forEach(function (img) {
+            if (img.dataset.fbWired) return;
+            img.dataset.fbWired = "1";
+            const btn = img.closest(".thumb-btn");
+            const primary = img.getAttribute("src") || "";
+            const preview =
+              (btn && btn.getAttribute("data-preview")) || "";
+            const queue = [];
+            const seen = {};
+            function pushAlt(u) {
+              const s = String(u || "").trim();
+              if (!s || seen[s] || s === primary) return;
+              seen[s] = 1;
+              queue.push(s);
+            }
+            if (/THUMBNUM/i.test(primary)) {
+              ["16", "9", "8", "1", "15", "5"].forEach(function (n) {
+                pushAlt(primary.replace(/THUMBNUM/gi, n));
+              });
+            }
+            if (/\.(jpe?g|png|webp)(\?|#|$)/i.test(preview)) pushAlt(preview);
+            let primaryRetries = 0;
+            if (!primary) {
+              img.classList.add("thumb-broken");
+              if (btn) btn.classList.add("no-thumb");
+              return;
+            }
+            img.addEventListener("error", function onErr() {
+              const cur = img.getAttribute("src") || "";
+              if (cur === primary && primaryRetries < 1) {
+                primaryRetries += 1;
+                img.removeAttribute("src");
+                requestAnimationFrame(function () {
+                  img.src = primary;
+                });
+                return;
+              }
+              if (queue.length) {
+                img.src = queue.shift();
+                return;
+              }
+              img.removeEventListener("error", onErr);
+              img.removeAttribute("src");
+              img.classList.add("thumb-broken");
+              if (btn) btn.classList.add("no-thumb");
+            });
+          });
+        }
+
+        function wireRelatedCards(items) {
+          const byId = {};
+          items.forEach(function (i) {
+            byId[i.id] = i;
+          });
+          relatedBody.querySelectorAll(".card").forEach(function (card) {
+            const item = byId[card.dataset.id];
+            if (!item) return;
+            card.querySelectorAll("[data-open]").forEach(function (btn) {
+              btn.addEventListener("click", function (e) {
+                e.preventDefault();
+                openRelatedCard(item);
+              });
+            });
+            const tabBtn = card.querySelector("[data-open-tab]");
+            if (tabBtn) {
+              tabBtn.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(playerHref(item), "_blank", "noopener");
+              });
+            }
+            const favBtn = card.querySelector("[data-fav]");
+            if (favBtn) {
+              favBtn.addEventListener("click", async function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                try {
+                  if (favBtn.classList.contains("danger")) {
+                    await window.HumanityAPI.removeFavorite(item.id);
+                    favBtn.classList.remove("danger");
+                    favBtn.textContent = t("save");
+                    if (item.id === id) {
+                      saved = false;
+                      syncFavBtn();
+                    }
+                  } else {
+                    await window.HumanityAPI.addFavorite(item);
+                    favBtn.classList.add("danger");
+                    favBtn.textContent = t("unsave");
+                    if (item.id === id) {
+                      saved = true;
+                      syncFavBtn();
+                    }
+                  }
+                } catch (err) {
+                  if (err && err.code === 401) {
+                    showGate("Sign in required to play", "signin");
+                  }
+                }
+              });
+            }
+          });
+          wireRelatedThumbFallback(relatedBody);
+          if (window.HumanityPreview) window.HumanityPreview.bind(relatedBody);
         }
 
         async function openRelated() {
@@ -584,39 +848,9 @@
               }
               relatedBody.innerHTML =
                 '<div class="related-grid">' +
-                items
-                  .map(function (it) {
-                    const meta = [it.duration, it.quality]
-                      .filter(Boolean)
-                      .join(" · ");
-                    return (
-                      '<button type="button" class="related-card" data-id="' +
-                      esc(it.id) +
-                      '">' +
-                      (it.thumb
-                        ? '<img src="' +
-                          esc(it.thumb) +
-                          '" alt="" loading="lazy" />'
-                        : '<img alt="" />') +
-                      '<p class="rt">' +
-                      esc(it.title || "") +
-                      "</p>" +
-                      (meta
-                        ? '<div class="related-meta">' + esc(meta) + "</div>"
-                        : "") +
-                      "</button>"
-                    );
-                  })
-                  .join("") +
+                items.map(relatedCardHtml).join("") +
                 "</div>";
-              relatedBody.querySelectorAll(".related-card").forEach(function (btn) {
-                const item = items.find(function (x) {
-                  return x.id === btn.getAttribute("data-id");
-                });
-                btn.addEventListener("click", function () {
-                  openRelatedCard(item);
-                });
-              });
+              wireRelatedCards(items);
             } catch (err) {
               relatedBody.innerHTML =
                 '<div class="related-empty">' +

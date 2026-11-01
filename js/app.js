@@ -267,12 +267,24 @@
     const preview = item.preview || thumb;
     const saved = opts && opts.saved;
     const channel = item.sourceLabel || item.source || "";
+    const duration = item.duration ? String(item.duration) : "";
+    const quality = item.quality ? String(item.quality) : "";
     return `<article class="card" data-id="${escapeHtml(item.id)}">
       <button type="button" class="thumb-btn" data-open data-thumb="${escapeHtml(
         thumb
       )}" data-preview="${escapeHtml(preview)}">
         <img src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async" data-fallback />
         <span class="src-tag">${escapeHtml(channel)}</span>
+        ${
+          quality
+            ? `<span class="quality-badge">${escapeHtml(quality)}</span>`
+            : ""
+        }
+        ${
+          duration
+            ? `<span class="duration-badge">${escapeHtml(duration)}</span>`
+            : ""
+        }
       </button>
       <div class="card-body">
         <h3 class="title">${escapeHtml(item.title || "")}</h3>

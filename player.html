@@ -95,8 +95,8 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=16"></script>
-    <script src="./js/api.js?v=16"></script>
+    <script src="./js/config.js?v=17"></script>
+    <script src="./js/api.js?v=17"></script>
   </head>
   <body>
     <div class="stage" id="stage"></div>
@@ -130,10 +130,13 @@
 
         function showQuality(q) {
           if (!q) return;
-          const tag = document.createElement("div");
-          tag.className = "quality-tag";
+          let tag = document.querySelector(".quality-tag");
+          if (!tag) {
+            tag = document.createElement("div");
+            tag.className = "quality-tag";
+            document.body.appendChild(tag);
+          }
           tag.textContent = q;
-          document.body.appendChild(tag);
         }
 
         function destroyHls() {
@@ -143,6 +146,20 @@
             } catch (_) {}
             hlsObj = null;
           }
+        }
+
+        function lockHlsMax(hls, levels) {
+          if (!hls || !levels || !levels.length) return null;
+          const max = levels.length - 1;
+          try {
+            hls.autoLevelEnabled = false;
+          } catch (_) {}
+          hls.startLevel = max;
+          hls.currentLevel = max;
+          hls.loadLevel = max;
+          hls.nextLevel = max;
+          const lv = levels[max];
+          return lv && lv.height ? lv.height + "p" : null;
         }
 
         function mountVideo(src, fallbackEmbed, quality) {
@@ -170,21 +187,27 @@
           const isHls = /\.m3u8(\?|#|$)/i.test(src);
           if (isHls) {
             if (video.canPlayType("application/vnd.apple.mpegurl")) {
+              // Safari：上游已解析为最高档 variant 时直接播
               video.src = src;
             } else if (window.Hls && window.Hls.isSupported()) {
               hlsObj = new window.Hls({
                 enableWorker: true,
                 startLevel: -1,
+                capLevelToPlayerSize: false,
+                abrEwmaDefaultEstimate: 1e7,
               });
               hlsObj.loadSource(src);
               hlsObj.attachMedia(video);
               hlsObj.on(window.Hls.Events.MANIFEST_PARSED, function (_e, data) {
-                if (data && data.levels && data.levels.length) {
-                  hlsObj.currentLevel = data.levels.length - 1;
-                  const lv = data.levels[data.levels.length - 1];
-                  if (lv && lv.height) showQuality(lv.height + "p");
-                }
+                const q = lockHlsMax(hlsObj, data && data.levels);
+                if (q) showQuality(q);
                 video.play().catch(function () {});
+              });
+              hlsObj.on(window.Hls.Events.LEVEL_SWITCHED, function (_e, data) {
+                try {
+                  const lv = hlsObj.levels && hlsObj.levels[data.level];
+                  if (lv && lv.height) showQuality(lv.height + "p");
+                } catch (_) {}
               });
               hlsObj.on(window.Hls.Events.ERROR, function (_e, data) {
                 if (data && data.fatal) onFail();
@@ -295,21 +318,13 @@
 
           const isMedia =
             stream && /\.(mp4|webm|m3u8)(\?|#|$)/i.test(stream);
-          // 实测仅 ch2（XVideos）直链稳定可播；其余优先 embed，避免坏链闪一下再退回
-          const preferVideo =
-            source === "ch2" ||
-            /xvideos/i.test(String(stream || "") + String(embed || ""));
-
-          if (preferVideo && isMedia) {
+          // 一律优先最高清直链 <video>；失败再回退 embed
+          if (isMedia) {
             mountVideo(stream, embed, quality);
             return;
           }
           if (embed) {
             mountIframe(embed);
-            return;
-          }
-          if (isMedia) {
-            mountVideo(stream, null, quality);
             return;
           }
           showGate("No playable URL");

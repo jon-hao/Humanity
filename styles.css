@@ -447,10 +447,15 @@ select {
 /* 自定义下拉 */
 .sq-select {
   position: relative;
-  flex: 0 1 132px;
-  min-width: 108px;
-  max-width: 42%;
+  flex: 0 1 148px;
+  min-width: 118px;
+  max-width: 48%;
   z-index: 20;
+}
+
+.sq-select.sq-multi {
+  flex: 0 1 168px;
+  min-width: 128px;
 }
 
 .sq-select-btn {
@@ -525,6 +530,44 @@ select {
 .sq-option.active {
   background: color-mix(in srgb, var(--brand) 18%, transparent);
   color: var(--brand-2);
+}
+
+.sq-multi .sq-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sq-multi .sq-check {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 3px;
+  flex: 0 0 auto;
+  position: relative;
+  background: var(--input);
+}
+
+.sq-multi .sq-option.active .sq-check {
+  border-color: var(--brand-2);
+  background: var(--brand-2);
+}
+
+.sq-multi .sq-option.active .sq-check::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 4px;
+  height: 8px;
+  border: solid #0c0f14;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.sq-multi .sq-select-list {
+  min-width: 180px;
+  max-height: 320px;
 }
 
 .status {

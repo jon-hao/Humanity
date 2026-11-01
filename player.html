@@ -80,26 +80,167 @@
       .gate a {
         color: #9ec1ff;
       }
-      .quality-tag {
-        position: fixed;
-        left: 12px;
-        top: 12px;
-        z-index: 5;
-        padding: 4px 8px;
-        border-radius: 6px;
-        background: rgba(0, 0, 0, 0.55);
-        color: #e8a05c;
-        font-size: 0.72rem;
-        font-weight: 700;
+      .play-chrome {
+        position: absolute;
+        inset: 0;
+        z-index: 6;
         pointer-events: none;
+      }
+      .play-chrome[hidden] {
+        display: none !important;
+      }
+      .chrome-btn {
+        pointer-events: auto;
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.5);
+        color: #fff;
+        font-size: 1.05rem;
+        line-height: 1;
+        cursor: pointer;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+      }
+      .chrome-btn:hover {
+        background: rgba(0, 0, 0, 0.7);
+      }
+      .chrome-btn.is-on {
+        color: #ff6b8a;
+      }
+      .chrome-related {
+        font-size: 0.85rem;
+        font-weight: 700;
+      }
+      .chrome-left {
+        position: absolute;
+        left: 10px;
+        top: 10px;
+        display: flex;
+        gap: 8px;
+        pointer-events: none;
+      }
+      .chrome-left .chrome-btn {
+        pointer-events: auto;
+      }
+      .chrome-close {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        font-size: 1.4rem;
+      }
+      .related-sheet {
+        position: absolute;
+        inset: 0;
+        z-index: 12;
+        background: rgba(8, 10, 14, 0.96);
+        color: #e8eef8;
+        display: flex;
+        flex-direction: column;
+        pointer-events: auto;
+      }
+      .related-sheet[hidden] {
+        display: none !important;
+      }
+      .related-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        flex: 0 0 auto;
+      }
+      .related-head h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+      .related-body {
+        flex: 1;
+        overflow: auto;
+        padding: 12px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .related-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 10px;
+      }
+      .related-card {
+        border: 0;
+        padding: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .related-card img {
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        object-fit: cover;
+        border-radius: 8px;
+        background: #111;
+        display: block;
+      }
+      .related-card .rt {
+        margin: 6px 0 0;
+        font-size: 0.75rem;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .related-meta {
+        margin-top: 4px;
+        font-size: 0.68rem;
+        color: #8b97ab;
+      }
+      .related-empty {
+        text-align: center;
+        color: #8b97ab;
+        padding: 40px 12px;
+        font-size: 0.9rem;
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=17"></script>
-    <script src="./js/api.js?v=17"></script>
+    <script src="./js/config.js?v=18"></script>
+    <script src="./js/api.js?v=18"></script>
   </head>
   <body>
-    <div class="stage" id="stage"></div>
+    <div class="stage" id="stage">
+      <div class="play-chrome" id="chrome" hidden>
+        <div class="chrome-left">
+          <button type="button" class="chrome-btn" id="favBtn" aria-label="Favorite" title="Favorite">
+            ♥
+          </button>
+          <button
+            type="button"
+            class="chrome-btn chrome-related"
+            id="relatedBtn"
+            aria-label="Related"
+            title="Related"
+          >
+            荐
+          </button>
+        </div>
+        <button type="button" class="chrome-btn chrome-close" id="closeBtn" aria-label="Close">
+          ×
+        </button>
+      </div>
+      <div class="related-sheet" id="relatedSheet" hidden>
+        <div class="related-head">
+          <h2 id="relatedTitle">Related</h2>
+          <button type="button" class="chrome-btn" id="relatedClose" aria-label="Close">×</button>
+        </div>
+        <div class="related-body" id="relatedBody"></div>
+      </div>
+    </div>
     <script>
       (function () {
         const PLAY_STORE_PREFIX = "humanity-play:";
@@ -107,36 +248,73 @@
         const id = p.get("id") || "";
         let title = p.get("title") || "Video";
         const stage = document.getElementById("stage");
+        const chrome = document.getElementById("chrome");
+        const favBtn = document.getElementById("favBtn");
+        const relatedBtn = document.getElementById("relatedBtn");
+        const closeBtn = document.getElementById("closeBtn");
+        const relatedSheet = document.getElementById("relatedSheet");
+        const relatedBody = document.getElementById("relatedBody");
+        const relatedClose = document.getElementById("relatedClose");
+        const relatedTitle = document.getElementById("relatedTitle");
         let hlsObj = null;
         let poster = "";
+        let playCtx = null;
+        let saved = false;
+        let relatedLoaded = false;
+        const inFrame = (function () {
+          try {
+            return window.parent && window.parent !== window;
+          } catch (_) {
+            return true;
+          }
+        })();
+
+        function esc(s) {
+          return String(s || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        function showChrome(on) {
+          if (!chrome) return;
+          chrome.hidden = !on;
+        }
+
+        function clearMedia() {
+          Array.from(stage.children).forEach((el) => {
+            if (
+              el === chrome ||
+              el === relatedSheet ||
+              el.id === "chrome" ||
+              el.id === "relatedSheet"
+            ) {
+              return;
+            }
+            el.remove();
+          });
+        }
 
         function showGate(msg, linkMode) {
           stage.classList.remove("has-media");
+          showChrome(true);
+          clearMedia();
           let extra = "";
           if (linkMode === "signin") {
             extra = '<p><a href="./">Sign in</a></p>';
           } else if (linkMode === "home") {
             extra = '<p><a href="./">Back</a></p>';
           }
-          stage.innerHTML =
-            '<div class="gate"><h1>' +
-            String(title).replace(/</g, "&lt;") +
+          const gate = document.createElement("div");
+          gate.className = "gate";
+          gate.innerHTML =
+            "<h1>" +
+            esc(title) +
             "</h1><p>" +
-            String(msg || "Unable to play").replace(/</g, "&lt;") +
+            esc(msg || "Unable to play") +
             "</p>" +
-            extra +
-            "</div>";
-        }
-
-        function showQuality(q) {
-          if (!q) return;
-          let tag = document.querySelector(".quality-tag");
-          if (!tag) {
-            tag = document.createElement("div");
-            tag.className = "quality-tag";
-            document.body.appendChild(tag);
-          }
-          tag.textContent = q;
+            extra;
+          stage.appendChild(gate);
         }
 
         function destroyHls() {
@@ -149,7 +327,7 @@
         }
 
         function lockHlsMax(hls, levels) {
-          if (!hls || !levels || !levels.length) return null;
+          if (!hls || !levels || !levels.length) return;
           const max = levels.length - 1;
           try {
             hls.autoLevelEnabled = false;
@@ -158,14 +336,13 @@
           hls.currentLevel = max;
           hls.loadLevel = max;
           hls.nextLevel = max;
-          const lv = levels[max];
-          return lv && lv.height ? lv.height + "p" : null;
         }
 
-        function mountVideo(src, fallbackEmbed, quality) {
+        function mountVideo(src, fallbackEmbed) {
           destroyHls();
           stage.classList.add("has-media");
-          stage.innerHTML = "";
+          clearMedia();
+          showChrome(true);
           const video = document.createElement("video");
           video.controls = true;
           video.autoplay = true;
@@ -182,12 +359,10 @@
           };
           video.addEventListener("error", onFail);
           stage.appendChild(video);
-          showQuality(quality);
 
           const isHls = /\.m3u8(\?|#|$)/i.test(src);
           if (isHls) {
             if (video.canPlayType("application/vnd.apple.mpegurl")) {
-              // Safari：上游已解析为最高档 variant 时直接播
               video.src = src;
             } else if (window.Hls && window.Hls.isSupported()) {
               hlsObj = new window.Hls({
@@ -199,15 +374,8 @@
               hlsObj.loadSource(src);
               hlsObj.attachMedia(video);
               hlsObj.on(window.Hls.Events.MANIFEST_PARSED, function (_e, data) {
-                const q = lockHlsMax(hlsObj, data && data.levels);
-                if (q) showQuality(q);
+                lockHlsMax(hlsObj, data && data.levels);
                 video.play().catch(function () {});
-              });
-              hlsObj.on(window.Hls.Events.LEVEL_SWITCHED, function (_e, data) {
-                try {
-                  const lv = hlsObj.levels && hlsObj.levels[data.level];
-                  if (lv && lv.height) showQuality(lv.height + "p");
-                } catch (_) {}
               });
               hlsObj.on(window.Hls.Events.ERROR, function (_e, data) {
                 if (data && data.fatal) onFail();
@@ -227,7 +395,8 @@
             return;
           }
           stage.classList.add("has-media");
-          stage.innerHTML = "";
+          clearMedia();
+          showChrome(true);
           const iframe = document.createElement("iframe");
           iframe.src = src;
           iframe.allow =
@@ -249,6 +418,15 @@
           }
         }
 
+        function writeStore(key, value) {
+          try {
+            localStorage.setItem(key, value);
+          } catch (_) {}
+          try {
+            sessionStorage.setItem(key, value);
+          } catch (_) {}
+        }
+
         function readPlayContext(playId) {
           if (!playId) return null;
           try {
@@ -260,6 +438,198 @@
             return null;
           }
         }
+
+        function stashItem(item) {
+          const payload = JSON.stringify({
+            id: item.id,
+            page: item.url || item.page || null,
+            embed: item.embed || null,
+            source: item.source || null,
+            title: item.title || null,
+            poster: item.thumb || item.poster || null,
+            preview: item.preview || null,
+            duration: item.duration || null,
+            quality: item.quality || null,
+            at: Date.now(),
+          });
+          writeStore(PLAY_STORE_PREFIX + item.id, payload);
+        }
+
+        function favItemFromCtx() {
+          if (!playCtx || !id) return null;
+          return {
+            id: id,
+            source: playCtx.source || null,
+            title: playCtx.title || title,
+            thumb: playCtx.poster || null,
+            preview: playCtx.preview || playCtx.poster || null,
+            url: playCtx.page || null,
+            embed: playCtx.embed || null,
+            duration: playCtx.duration || null,
+            quality: playCtx.quality || null,
+          };
+        }
+
+        function syncFavBtn() {
+          if (!favBtn) return;
+          favBtn.classList.toggle("is-on", !!saved);
+          favBtn.setAttribute("aria-pressed", saved ? "true" : "false");
+          favBtn.title = saved ? "Unsave" : "Save";
+        }
+
+        async function refreshSaved() {
+          if (!id || !window.HumanityAPI || !window.HumanityAPI.hasFavorite) {
+            saved = false;
+            syncFavBtn();
+            return;
+          }
+          try {
+            const d = await window.HumanityAPI.hasFavorite(id);
+            saved = !!(d && d.saved);
+          } catch (_) {
+            saved = false;
+          }
+          syncFavBtn();
+        }
+
+        async function toggleFav() {
+          const item = favItemFromCtx();
+          if (!item || !window.HumanityAPI) return;
+          try {
+            if (saved) {
+              await window.HumanityAPI.removeFavorite(item.id);
+              saved = false;
+            } else {
+              await window.HumanityAPI.addFavorite(item);
+              saved = true;
+            }
+            syncFavBtn();
+          } catch (err) {
+            if (err && err.code === 401) {
+              showGate("Sign in required to play", "signin");
+            }
+          }
+        }
+
+        function closePlayer() {
+          if (inFrame) {
+            try {
+              window.parent.postMessage(
+                { type: "humanity-play-close" },
+                "*"
+              );
+            } catch (_) {}
+            return;
+          }
+          location.href = "./";
+        }
+
+        function closeRelated() {
+          if (relatedSheet) relatedSheet.hidden = true;
+        }
+
+        function openRelatedCard(item) {
+          if (!item || !item.id) return;
+          stashItem(item);
+          const u = new URL(location.href);
+          u.searchParams.set("id", item.id);
+          if (item.title) u.searchParams.set("title", item.title);
+          location.href = u.href;
+        }
+
+        function t(key) {
+          const lang = localStorage.getItem("humanity-lang") || "zh";
+          const pack = {
+            zh: {
+              related: "相关推荐",
+              loading: "加载中…",
+              empty: "暂无相关影片",
+              fail: "加载失败",
+            },
+            "zh-TW": {
+              related: "相關推薦",
+              loading: "載入中…",
+              empty: "尚無相關影片",
+              fail: "載入失敗",
+            },
+            en: {
+              related: "Related",
+              loading: "Loading…",
+              empty: "No related videos",
+              fail: "Failed to load",
+            },
+          };
+          const table = pack[lang] || pack.zh;
+          return table[key] || pack.en[key] || key;
+        }
+
+        async function openRelated() {
+          if (!relatedSheet || !relatedBody) return;
+          relatedSheet.hidden = false;
+          if (relatedTitle) relatedTitle.textContent = t("related");
+          if (!relatedLoaded) {
+            relatedBody.innerHTML =
+              '<div class="related-empty">' + esc(t("loading")) + "</div>";
+            try {
+              const d = await window.HumanityAPI.related({
+                page: playCtx && playCtx.page,
+                source: playCtx && playCtx.source,
+              });
+              const items = (d && d.items) || [];
+              relatedLoaded = true;
+              if (!items.length) {
+                relatedBody.innerHTML =
+                  '<div class="related-empty">' + esc(t("empty")) + "</div>";
+                return;
+              }
+              relatedBody.innerHTML =
+                '<div class="related-grid">' +
+                items
+                  .map(function (it) {
+                    const meta = [it.duration, it.quality]
+                      .filter(Boolean)
+                      .join(" · ");
+                    return (
+                      '<button type="button" class="related-card" data-id="' +
+                      esc(it.id) +
+                      '">' +
+                      (it.thumb
+                        ? '<img src="' +
+                          esc(it.thumb) +
+                          '" alt="" loading="lazy" />'
+                        : '<img alt="" />') +
+                      '<p class="rt">' +
+                      esc(it.title || "") +
+                      "</p>" +
+                      (meta
+                        ? '<div class="related-meta">' + esc(meta) + "</div>"
+                        : "") +
+                      "</button>"
+                    );
+                  })
+                  .join("") +
+                "</div>";
+              relatedBody.querySelectorAll(".related-card").forEach(function (btn) {
+                const item = items.find(function (x) {
+                  return x.id === btn.getAttribute("data-id");
+                });
+                btn.addEventListener("click", function () {
+                  openRelatedCard(item);
+                });
+              });
+            } catch (err) {
+              relatedBody.innerHTML =
+                '<div class="related-empty">' +
+                esc((err && err.message) || t("fail")) +
+                "</div>";
+            }
+          }
+        }
+
+        if (favBtn) favBtn.addEventListener("click", toggleFav);
+        if (relatedBtn) relatedBtn.addEventListener("click", openRelated);
+        if (closeBtn) closeBtn.addEventListener("click", closePlayer);
+        if (relatedClose) relatedClose.addEventListener("click", closeRelated);
 
         async function start() {
           showGate("Loading…");
@@ -279,53 +649,63 @@
             return;
           }
 
-          const ctx = readPlayContext(id);
-          if (!ctx || (!ctx.page && !ctx.embed)) {
+          playCtx = readPlayContext(id);
+          if (!playCtx || (!playCtx.page && !playCtx.embed)) {
             showGate("Open a video from the library", "home");
             return;
           }
 
-          if (ctx.title) {
-            title = ctx.title;
+          if (playCtx.title) {
+            title = playCtx.title;
             document.title = title + " · Humanity";
           }
-          if (ctx.poster) poster = ctx.poster;
+          if (playCtx.poster) poster = playCtx.poster;
 
-          let embed = ctx.embed || null;
+          let embed = playCtx.embed || null;
           let stream = null;
-          let quality = null;
-          let source = ctx.source || null;
+          let source = playCtx.source || null;
+
+          refreshSaved();
 
           try {
             const d = await window.HumanityAPI.resolvePlay({
-              page: ctx.page || null,
+              page: playCtx.page || null,
               embed: embed,
               source: source,
             });
             if (d && d.stream) stream = d.stream;
             else if (d && d.hls) stream = d.hls;
             if (d && d.embed) embed = d.embed;
-            if (d && d.quality) quality = d.quality;
-            if (d && d.source) source = d.source;
+            if (d && d.source) {
+              source = d.source;
+              playCtx.source = d.source;
+            }
           } catch (err) {
             if (err && err.code === 401) {
               showGate("Sign in required to play", "signin");
               return;
             }
-            showGate(String((err && err.message) || "Unable to resolve stream"), "home");
+            showGate(
+              String((err && err.message) || "Unable to resolve stream"),
+              "home"
+            );
             return;
           }
 
+          // ch3（Eporner）不适合 video，强制 embed
+          const forceEmbed = source === "ch3" || /eporner/i.test(String(embed || ""));
+
           const isMedia =
+            !forceEmbed &&
             stream &&
             /^https?:/i.test(stream) &&
             (/\.(mp4|webm|m3u8)(\?|#|$)/i.test(stream) ||
               /\/dload\/[^/]+\/\d{3,4}\/?/i.test(stream) ||
               /\/hls\//i.test(stream) ||
               /get_media\?/i.test(stream));
-          // 一律优先最高清直链 <video>；失败再回退 embed
+
           if (isMedia) {
-            mountVideo(stream, embed, quality);
+            mountVideo(stream, embed);
             return;
           }
           if (embed) {

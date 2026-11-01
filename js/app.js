@@ -236,7 +236,7 @@
       <button type="button" class="thumb-btn" data-open data-thumb="${escapeHtml(
         thumb
       )}" data-preview="${escapeHtml(preview)}">
-        <img src="${escapeHtml(thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fallback />
+        <img src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async" data-fallback />
         <span class="src-tag">${escapeHtml(channel)}</span>
       </button>
       <div class="card-body">
@@ -252,20 +252,62 @@
 
   function wireThumbFallback(root) {
     root.querySelectorAll("img[data-fallback]").forEach((img) => {
+      if (img.dataset.fbWired) return;
+      img.dataset.fbWired = "1";
+      const btn = img.closest(".thumb-btn");
+      const primary = img.getAttribute("src") || "";
+      const preview = (btn && btn.getAttribute("data-preview")) || "";
+      const queue = [];
+      const seen = new Set();
+      function pushAlt(u) {
+        const s = String(u || "").trim();
+        if (!s || seen.has(s) || s === primary) return;
+        seen.add(s);
+        queue.push(s);
+      }
+      if (/THUMBNUM/i.test(primary)) {
+        ["16", "9", "8", "1", "15", "5"].forEach((n) =>
+          pushAlt(primary.replace(/THUMBNUM/gi, n))
+        );
+      }
+      // ei.phncdn 帧号：... )0.jpg → 试其它帧
+      const frame = primary.match(/^(.*\))(\d+)(\.jpe?g)(\?[^#]*)?(#.*)?$/i);
+      if (frame) {
+        [1, 8, 9, 16, 5, 0].forEach((n) => {
+          if (String(n) === frame[2]) return;
+          pushAlt(
+            frame[1] + n + frame[3] + (frame[4] || "") + (frame[5] || "")
+          );
+        });
+      }
+      // 仅当预览是静态图时才可作封面兜底（不要用 webm）
+      if (/\.(jpe?g|png|webp)(\?|#|$)/i.test(preview)) pushAlt(preview);
+      // 切勿去掉 ?hash=&validto= 等签名参数，否则 CDN 直接 403
+
+      let primaryRetries = 0;
+      if (!primary) {
+        img.classList.add("thumb-broken");
+        if (btn) btn.classList.add("no-thumb");
+        return;
+      }
+
       img.addEventListener("error", function onErr() {
+        const cur = img.getAttribute("src") || "";
+        if (cur === primary && primaryRetries < 1) {
+          primaryRetries += 1;
+          img.removeAttribute("src");
+          requestAnimationFrame(() => {
+            img.src = primary;
+          });
+          return;
+        }
+        if (queue.length) {
+          img.src = queue.shift();
+          return;
+        }
         img.removeEventListener("error", onErr);
-        const raw = img.getAttribute("src") || "";
-        if (/THUMBNUM/i.test(raw)) {
-          img.src = raw.replace(/THUMBNUM/gi, "9");
-          return;
-        }
-        if (raw.includes("?")) {
-          img.src = raw.split("?")[0];
-          return;
-        }
         img.removeAttribute("src");
         img.classList.add("thumb-broken");
-        const btn = img.closest(".thumb-btn");
         if (btn) btn.classList.add("no-thumb");
       });
     });

@@ -4,11 +4,12 @@
     app: document.getElementById("appView"),
     fav: document.getElementById("favView"),
     loginForm: document.getElementById("loginForm"),
+    loginBtn: document.getElementById("loginBtn"),
     loginErr: document.getElementById("loginErr"),
     email: document.getElementById("email"),
     password: document.getElementById("password"),
     q: document.getElementById("q"),
-    source: document.getElementById("source"),
+    sourceSelect: document.getElementById("sourceSelect"),
     searchForm: document.getElementById("searchForm"),
     results: document.getElementById("results"),
     status: document.getElementById("status"),
@@ -22,6 +23,9 @@
     ptrFav: document.getElementById("ptrFav"),
   };
 
+  let sourceCtl = null;
+  let loggingIn = false;
+
   function escapeHtml(s) {
     return String(s || "")
       .replace(/&/g, "&amp;")
@@ -30,10 +34,24 @@
       .replace(/"/g, "&quot;");
   }
 
+  function sourceValue() {
+    return (
+      (sourceCtl && sourceCtl.value) ||
+      (els.sourceSelect && els.sourceSelect.dataset.value) ||
+      "all"
+    );
+  }
+
   function show(view) {
-    els.login.hidden = view !== "login";
-    els.app.hidden = view !== "app";
-    els.fav.hidden = view !== "fav";
+    const map = { login: els.login, app: els.app, fav: els.fav };
+    Object.keys(map).forEach((k) => {
+      const el = map[k];
+      if (!el) return;
+      const on = k === view;
+      el.hidden = !on;
+      el.classList.toggle("is-active", on);
+      el.setAttribute("aria-hidden", on ? "false" : "true");
+    });
   }
 
   function playerUrl(item) {
@@ -115,7 +133,7 @@
     els.status.textContent = "Searching…";
     els.results.innerHTML = '<div class="skel"></div>'.repeat(8);
     try {
-      const d = await window.HumanityAPI.search(q, els.source.value, 1);
+      const d = await window.HumanityAPI.search(q, sourceValue(), 1);
       const items = (d && d.items) || [];
       if (!items.length) {
         const errBits =
@@ -191,7 +209,8 @@
         const dy = e.touches[0].clientY - startY;
         if (dy > 12 && pane.scrollTop <= 0) {
           indicator.hidden = false;
-          indicator.textContent = dy > 70 ? "Release to refresh" : "Pull to refresh";
+          indicator.textContent =
+            dy > 70 ? "Release to refresh" : "Pull to refresh";
           indicator.style.setProperty("--ptr-y", Math.min(56, dy * 0.35) + "px");
           if (dy > 70 && e.cancelable) e.preventDefault();
         }
@@ -225,29 +244,54 @@
     );
   }
 
+  function setLoginLoading(on) {
+    loggingIn = !!on;
+    if (!els.loginBtn) return;
+    els.loginBtn.disabled = !!on;
+    els.loginBtn.classList.toggle("is-loading", !!on);
+    els.loginBtn.setAttribute("aria-busy", on ? "true" : "false");
+  }
+
   async function onLogin(ev) {
     ev.preventDefault();
+    if (loggingIn) return;
     els.loginErr.textContent = "";
-    els.loginForm.querySelector("button[type=submit]").disabled = true;
+    setLoginLoading(true);
     try {
-      await window.HumanityAPI.login(els.email.value.trim(), els.password.value);
+      await window.HumanityAPI.login(
+        els.email.value.trim(),
+        els.password.value
+      );
       show("app");
       els.q.focus();
     } catch (err) {
       els.loginErr.textContent = String(err.message || err);
     } finally {
-      els.loginForm.querySelector("button[type=submit]").disabled = false;
+      setLoginLoading(false);
     }
   }
 
   async function boot() {
-    const sess = await window.HumanityAPI.check();
-    if (sess) {
+    // 有本地 token 先乐观进主页，再后台校验
+    if (window.HumanityAPI.getToken()) {
       show("app");
-    } else {
-      show("login");
+      const sess = await window.HumanityAPI.check();
+      if (!sess) show("login");
+      return;
     }
+    show("login");
   }
+
+  sourceCtl = window.HumanitySelect.mount(
+    els.sourceSelect,
+    [
+      { value: "all", label: "All sources" },
+      { value: "pornhub", label: "Pornhub" },
+      { value: "xvideos", label: "XVideos" },
+      { value: "eporner", label: "Eporner" },
+    ],
+    "all"
+  );
 
   els.loginForm.addEventListener("submit", onLogin);
   els.searchForm.addEventListener("submit", runSearch);
@@ -256,6 +300,12 @@
   els.logoutBtn.addEventListener("click", async () => {
     await window.HumanityAPI.logout();
     show("login");
+  });
+
+  // 尽量抑制浏览器搜索历史下拉
+  els.q.addEventListener("focus", () => {
+    els.q.setAttribute("readonly", "readonly");
+    requestAnimationFrame(() => els.q.removeAttribute("readonly"));
   });
 
   wirePullToRefresh(els.appScroll, els.ptrApp, async () => {

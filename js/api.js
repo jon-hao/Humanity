@@ -23,13 +23,17 @@ window.HumanityAPI = (function () {
   }
 
   function setSession(token, email) {
-    localStorage.setItem(TOKEN_KEY, token || "");
-    if (email) localStorage.setItem(EMAIL_KEY, email);
+    try {
+      localStorage.setItem(TOKEN_KEY, token || "");
+      if (email) localStorage.setItem(EMAIL_KEY, email);
+    } catch (_) {}
   }
 
   function clearSession() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(EMAIL_KEY);
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(EMAIL_KEY);
+    } catch (_) {}
   }
 
   async function hapi(flow, params, opts) {
@@ -37,6 +41,9 @@ window.HumanityAPI = (function () {
     if (!base) throw new Error("apiBase missing");
     const q = Object.assign({ flow, app: cfg().app || "humanity" }, params || {});
     const token = getToken();
+    // 同时放 header + body，避免部分环境下 CORS 预检丢掉 Authorization
+    if (token && q.token == null) q.token = token;
+
     const method = (opts && opts.method) || "POST";
     const headers = { accept: "application/json" };
     if (token) headers.authorization = "Bearer " + token;
@@ -82,6 +89,7 @@ window.HumanityAPI = (function () {
       return data;
     } catch (e) {
       clearTimeout(t);
+      if (e && e.code === 401) throw e;
       if (e && e.name === "AbortError") throw new Error("timeout");
       throw e;
     }
@@ -99,12 +107,20 @@ window.HumanityAPI = (function () {
   }
 
   async function check() {
-    if (!getToken()) return null;
+    const token = getToken();
+    if (!token) return null;
     try {
-      const d = await hapi("hauth", { action: "check" }, { method: "POST" });
-      return d && d.ok ? d : null;
-    } catch (_) {
+      const d = await hapi(
+        "hauth",
+        { action: "check", token },
+        { method: "POST", timeout: 20000 }
+      );
+      if (d && d.ok) return d;
       return null;
+    } catch (e) {
+      // 网络/CORS 失败时保留本地 token，避免误踢回登录
+      if (e && e.code === 401) return null;
+      return { ok: true, email: getEmail(), offline: true };
     }
   }
 

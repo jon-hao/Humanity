@@ -15,6 +15,12 @@
   box-sizing: border-box;
 }
 
+/* 必须压过 .login-view { display:grid } 等，否则 hidden 失效导致登录/主页叠在一起 */
+[hidden],
+.view[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -37,8 +43,8 @@ body {
   min-height: 100dvh;
 }
 
-.app-view,
-.fav-view {
+.app-view.is-active,
+.fav-view.is-active {
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -73,7 +79,7 @@ body {
   pointer-events: none;
 }
 
-.login-view {
+.login-view.is-active {
   display: grid;
   place-items: center;
   padding: 24px;
@@ -140,10 +146,49 @@ select {
   background: linear-gradient(135deg, var(--brand), #a34820);
   border-color: transparent;
   color: #fff;
+  position: relative;
+}
+
+.btn.primary.is-loading {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.btn.primary .btn-spinner {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.btn.primary.is-loading .btn-label {
+  opacity: 0;
+}
+
+.btn.primary.is-loading .btn-spinner {
+  display: inline-block;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: -8px 0 0 -8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .btn.ghost {
   background: transparent;
+}
+
+.btn:disabled {
+  cursor: wait;
+  opacity: 0.8;
 }
 
 .btn.danger {
@@ -176,12 +221,7 @@ select {
   display: flex;
   gap: 8px;
   min-width: 0;
-}
-
-.search-bar select {
-  width: auto;
-  max-width: 34%;
-  flex: 0 1 140px;
+  align-items: center;
 }
 
 .search-bar input {
@@ -201,13 +241,109 @@ select {
   flex-shrink: 0;
 }
 
+.text-btn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 8px 4px;
+  flex-shrink: 0;
+}
+
+.text-btn:hover {
+  color: var(--ink);
+}
+
 .page-title {
   margin: 0;
   font-size: 1.1rem;
+  flex: 1;
+  text-align: center;
 }
 
-.spacer {
-  width: 42px;
+/* 自定义下拉 */
+.sq-select {
+  position: relative;
+  flex: 0 1 132px;
+  min-width: 108px;
+  max-width: 42%;
+  z-index: 20;
+}
+
+.sq-select-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: #0a0d12;
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 10px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sq-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.sq-caret {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--muted);
+  flex-shrink: 0;
+}
+
+.sq-select.open .sq-caret {
+  transform: rotate(180deg);
+}
+
+.sq-select-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--elev);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.sq-select-list[hidden] {
+  display: none !important;
+}
+
+.sq-option {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  padding: 10px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.sq-option:hover,
+.sq-option.active {
+  background: color-mix(in srgb, var(--brand) 18%, transparent);
+  color: var(--brand-2);
 }
 
 .status {

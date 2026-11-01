@@ -19,9 +19,10 @@
       body {
         margin: 0;
         height: 100%;
-        background: #000;
+        background: #0c0f14;
         overflow: hidden;
         font-family: "Segoe UI", "PingFang SC", sans-serif;
+        color: #e8eef8;
       }
       .stage {
         position: fixed;
@@ -30,9 +31,8 @@
         height: 100vh;
         background: #000;
       }
-      /* 移动端竖屏时旋转为横屏视觉（浏览器窗口级，非系统全屏） */
       @media (orientation: portrait) and (max-width: 900px) {
-        .stage {
+        .stage.has-media {
           width: 100vh;
           height: 100vw;
           top: 50%;
@@ -50,34 +50,50 @@
         background: #000;
         object-fit: contain;
       }
-      .bar {
-        position: fixed;
-        z-index: 5;
-        left: 0;
-        right: 0;
-        top: 0;
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        padding: 8px 12px;
-        background: linear-gradient(to bottom, rgba(0, 0, 0, 0.65), transparent);
-        color: #fff;
-        font-size: 0.85rem;
-        pointer-events: none;
-      }
-      .bar a {
-        pointer-events: auto;
-        color: #9ad;
-      }
-      .err {
-        color: #f88;
+      .gate {
+        min-height: 100%;
+        display: grid;
+        place-content: center;
+        gap: 14px;
         padding: 24px;
         text-align: center;
+      }
+      .gate h1 {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+      .gate p {
+        margin: 0;
+        color: #8b97ab;
+        font-size: 0.9rem;
+        max-width: 36rem;
+      }
+      .gate a,
+      .gate button {
+        font: inherit;
+        cursor: pointer;
+      }
+      .gate .btn {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        border: 0;
+        border-radius: 8px;
+        padding: 12px 18px;
+        background: linear-gradient(135deg, #c45c26, #a34820);
+        color: #fff;
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .gate .link {
+        color: #9ad;
+        background: none;
+        border: 0;
+        text-decoration: underline;
       }
     </style>
   </head>
   <body>
-    <div class="bar" id="bar"></div>
     <div class="stage" id="stage"></div>
     <script>
       (function () {
@@ -85,45 +101,65 @@
         const embed = p.get("embed");
         const page = p.get("page");
         const title = p.get("title") || "Video";
-        const poster = p.get("poster") || "";
         const source = p.get("source") || "";
+        const target = page || embed;
         document.title = title + " · Humanity";
-        const bar = document.getElementById("bar");
-        bar.innerHTML =
-          "<span>" +
-          title.replace(/</g, "&lt;") +
-          (source ? " · " + source : "") +
-          "</span>" +
-          (page
-            ? ' · <a href="' +
-              page.replace(/"/g, "&quot;") +
-              '" target="_blank" rel="noopener">Open source</a>'
-            : "");
-
         const stage = document.getElementById("stage");
-        // 优先 iframe 官方 embed（多数站点不允许直链 mp4）
-        if (embed) {
-          const iframe = document.createElement("iframe");
-          iframe.src = embed;
-          iframe.allow =
-            "autoplay; fullscreen; picture-in-picture; encrypted-media";
-          iframe.allowFullscreen = true;
-          iframe.referrerPolicy = "no-referrer";
-          stage.appendChild(iframe);
+
+        function openTop(url) {
+          // 多数成人站禁止 iframe（X-Frame-Options / 拒连）。顶层跳转才能播。
+          location.replace(url);
+        }
+
+        if (!target) {
+          stage.innerHTML =
+            '<div class="gate"><h1>No playable URL</h1></div>';
           return;
         }
-        if (page) {
-          // 无 embed 时退化为整页
-          const iframe = document.createElement("iframe");
-          iframe.src = page;
-          iframe.allow = "autoplay; fullscreen";
-          iframe.allowFullscreen = true;
-          stage.appendChild(iframe);
+
+        // 已知会拒嵌的源：直接顶层打开，避免空白拒连页
+        if (/eporner|pornhub|xvideos/i.test(source) || /eporner|pornhub|xvideos/i.test(target)) {
+          stage.innerHTML =
+            '<div class="gate">' +
+            "<h1>" +
+            title.replace(/</g, "&lt;") +
+            "</h1>" +
+            "<p>This source blocks embedded players. Opening the original page…</p>" +
+            '<a class="btn" id="go" href="' +
+            target.replace(/"/g, "&quot;") +
+            '">Continue</a>' +
+            "</div>";
+          const go = document.getElementById("go");
+          // 立刻跳转；保留按钮兜底
+          setTimeout(function () {
+            openTop(target);
+          }, 200);
+          go.addEventListener("click", function (e) {
+            e.preventDefault();
+            openTop(target);
+          });
           return;
         }
-        stage.innerHTML = '<p class="err">No playable URL</p>';
-        // 预留：若日后 HApi 能解析直链 mp4/m3u8，可改用 <video>
-        void poster;
+
+        // 其他源仍尝试 iframe
+        stage.classList.add("has-media");
+        const iframe = document.createElement("iframe");
+        iframe.src = embed || page;
+        iframe.allow =
+          "autoplay; fullscreen; picture-in-picture; encrypted-media";
+        iframe.allowFullscreen = true;
+        iframe.referrerPolicy = "no-referrer";
+        let settled = false;
+        const fallback = setTimeout(function () {
+          if (settled) return;
+          settled = true;
+          openTop(target);
+        }, 2500);
+        iframe.addEventListener("load", function () {
+          settled = true;
+          clearTimeout(fallback);
+        });
+        stage.appendChild(iframe);
       })();
     </script>
   </body>

@@ -8,10 +8,10 @@
     />
     <meta name="robots" content="noindex,nofollow" />
     <title>Humanity</title>
-    <link rel="stylesheet" href="./styles.css?v=2" />
+    <link rel="stylesheet" href="./styles.css?v=4" />
   </head>
   <body>
-    <div id="loginView" class="view login-view" hidden>
+    <div id="loginView" class="view login-view is-active">
       <form id="loginForm" class="login-card" autocomplete="on">
         <h1 class="brand">Humanity</h1>
         <p class="muted">Private aggregator — invite only</p>
@@ -29,25 +29,36 @@
             autocomplete="current-password"
           />
         </label>
-        <button type="submit" class="btn primary">Sign in</button>
+        <button type="submit" class="btn primary" id="loginBtn">
+          <span class="btn-label">Sign in</span>
+          <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
         <p id="loginErr" class="err" role="alert"></p>
       </form>
     </div>
 
     <div id="appView" class="view app-view" hidden>
       <header class="top">
-        <button type="button" class="icon-btn" id="favBtn" title="Favorites">★</button>
-        <form id="searchForm" class="search-bar">
-          <select id="source" aria-label="Source">
-            <option value="all">All sources</option>
-            <option value="pornhub">Pornhub</option>
-            <option value="xvideos">XVideos</option>
-            <option value="eporner">Eporner</option>
-          </select>
-          <input id="q" type="search" placeholder="Search…" enterkeyhint="search" required />
-          <button type="submit" class="btn primary">Go</button>
+        <button type="button" class="icon-btn" id="favBtn" title="Favorites" aria-label="Favorites">
+          ★
+        </button>
+        <form id="searchForm" class="search-bar" autocomplete="off">
+          <div class="sq-select" id="sourceSelect" data-value="all"></div>
+          <input
+            id="q"
+            name="humanity-q"
+            type="search"
+            placeholder="Search…"
+            enterkeyhint="search"
+            required
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            data-lpignore="true"
+            data-form-type="other"
+          />
         </form>
-        <button type="button" class="icon-btn" id="logoutBtn" title="Log out">⎋</button>
       </header>
       <div class="scroll-pane" id="appScroll">
         <div class="ptr-indicator" id="ptrApp" hidden>Release to refresh</div>
@@ -58,9 +69,9 @@
 
     <div id="favView" class="view fav-view" hidden>
       <header class="top">
-        <button type="button" class="icon-btn" id="backBtn" title="Back">←</button>
+        <button type="button" class="icon-btn" id="backBtn" title="Back" aria-label="Back">←</button>
         <h2 class="page-title">Favorites</h2>
-        <span class="spacer"></span>
+        <button type="button" class="text-btn" id="logoutBtn">Log out</button>
       </header>
       <div class="scroll-pane" id="favScroll">
         <div class="ptr-indicator" id="ptrFav" hidden>Release to refresh</div>
@@ -68,9 +79,10 @@
       </div>
     </div>
 
-    <script src="./js/config.js?v=2"></script>
-    <script src="./js/api.js?v=2"></script>
-    <script src="./js/preview.js?v=2"></script>
-    <script src="./js/app.js?v=2"></script>
+    <script src="./js/config.js?v=4"></script>
+    <script src="./js/api.js?v=4"></script>
+    <script src="./js/select.js?v=4"></script>
+    <script src="./js/preview.js?v=4"></script>
+    <script src="./js/app.js?v=4"></script>
   </body>
 </html>

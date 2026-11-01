@@ -18,6 +18,8 @@ window.HumanityPreview = (function () {
     v.setAttribute("playsinline", "");
     v.setAttribute("webkit-playsinline", "");
     v.preload = "auto";
+    v.referrerPolicy = "no-referrer";
+    v.setAttribute("referrerpolicy", "no-referrer");
     v.setAttribute("aria-hidden", "true");
     el.appendChild(v);
     return v;

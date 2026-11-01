@@ -38,6 +38,9 @@
     pwdSave: document.getElementById("pwdSave"),
     pwdErr: document.getElementById("pwdErr"),
     backToLogin: document.getElementById("backToLogin"),
+    playModal: document.getElementById("playModal"),
+    playFrame: document.getElementById("playFrame"),
+    playClose: document.getElementById("playClose"),
   };
 
   let sourceCtl = null;
@@ -104,6 +107,10 @@
     if (els.backBtn) {
       els.backBtn.title = window.ht("back");
       els.backBtn.setAttribute("aria-label", window.ht("back"));
+    }
+    if (els.playClose) {
+      els.playClose.setAttribute("aria-label", window.ht("close"));
+      els.playClose.title = window.ht("close");
     }
     if (loginLangCtl) loginLangCtl.refresh(langOptions(), lang);
     if (langCtl) langCtl.refresh(langOptions(), lang);
@@ -227,6 +234,34 @@
     return u.href;
   }
 
+  function openPlayModal(item) {
+    if (!els.playModal || !els.playFrame) {
+      window.open(playerUrl(item), "_blank", "noopener");
+      return;
+    }
+    const href = playerUrl(item);
+    els.playFrame.src = href;
+    els.playModal.hidden = false;
+    els.playModal.classList.add("is-open");
+    els.playModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("play-open");
+  }
+
+  function closePlayModal() {
+    if (!els.playModal) return;
+    els.playModal.classList.remove("is-open");
+    els.playModal.hidden = true;
+    els.playModal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("play-open");
+    if (els.playFrame) {
+      try {
+        els.playFrame.src = "about:blank";
+      } catch (_) {
+        els.playFrame.removeAttribute("src");
+      }
+    }
+  }
+
   function cardHtml(item, opts) {
     const thumb = item.thumb || "";
     const preview = item.preview || thumb;
@@ -245,6 +280,9 @@
           <button type="button" class="btn ${saved ? "danger" : ""}" data-fav>${
             saved ? window.ht("unsave") : window.ht("save")
           }</button>
+          <button type="button" class="btn ghost btn-open" data-open-tab title="${escapeHtml(
+            window.ht("openWindow")
+          )}" aria-label="${escapeHtml(window.ht("openWindow"))}">↗</button>
         </div>
       </div>
     </article>`;
@@ -332,9 +370,17 @@
       card.querySelectorAll("[data-open]").forEach((btn) => {
         btn.addEventListener("click", (e) => {
           e.preventDefault();
-          window.open(playerUrl(item), "_blank", "noopener");
+          openPlayModal(item);
         });
       });
+      const tabBtn = card.querySelector("[data-open-tab]");
+      if (tabBtn) {
+        tabBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          window.open(playerUrl(item), "_blank", "noopener");
+        });
+      }
       const favBtn = card.querySelector("[data-fav]");
       if (favBtn) {
         favBtn.addEventListener("click", async (e) => {
@@ -680,6 +726,12 @@
   }
   if (els.themeBtn) els.themeBtn.addEventListener("click", toggleTheme);
   if (els.loginThemeBtn) els.loginThemeBtn.addEventListener("click", toggleTheme);
+  if (els.playClose) {
+    els.playClose.addEventListener("click", closePlayModal);
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closePlayModal();
+  });
 
   if (els.pagePrev) {
     els.pagePrev.addEventListener("click", () => {

@@ -72,9 +72,23 @@
         font-size: 0.9rem;
         max-width: 36rem;
       }
+      .quality-tag {
+        position: fixed;
+        left: 12px;
+        top: 12px;
+        z-index: 5;
+        padding: 4px 8px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.55);
+        color: #e8a05c;
+        font-size: 0.72rem;
+        font-weight: 700;
+        pointer-events: none;
+      }
     </style>
-    <script src="./js/config.js?v=6"></script>
-    <script src="./js/api.js?v=6"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+    <script src="./js/config.js?v=7"></script>
+    <script src="./js/api.js?v=7"></script>
   </head>
   <body>
     <div class="stage" id="stage"></div>
@@ -89,6 +103,7 @@
         const source = p.get("source") || "";
         document.title = title + " · Humanity";
         const stage = document.getElementById("stage");
+        let hlsObj = null;
 
         function showGate(msg) {
           stage.classList.remove("has-media");
@@ -100,7 +115,25 @@
             "</p></div>";
         }
 
-        function mountVideo(src, fallbackEmbed) {
+        function showQuality(q) {
+          if (!q) return;
+          const tag = document.createElement("div");
+          tag.className = "quality-tag";
+          tag.textContent = q;
+          document.body.appendChild(tag);
+        }
+
+        function destroyHls() {
+          if (hlsObj) {
+            try {
+              hlsObj.destroy();
+            } catch (_) {}
+            hlsObj = null;
+          }
+        }
+
+        function mountVideo(src, fallbackEmbed, quality) {
+          destroyHls();
           stage.classList.add("has-media");
           stage.innerHTML = "";
           const video = document.createElement("video");
@@ -109,18 +142,51 @@
           video.playsInline = true;
           video.setAttribute("playsinline", "");
           if (poster) video.poster = poster;
-          video.src = src;
           let fellBack = false;
-          video.addEventListener("error", function () {
+          const onFail = function () {
             if (fellBack) return;
             fellBack = true;
+            destroyHls();
             if (fallbackEmbed) mountIframe(fallbackEmbed);
             else showGate("Video stream unavailable");
-          });
+          };
+          video.addEventListener("error", onFail);
           stage.appendChild(video);
+          showQuality(quality);
+
+          const isHls = /\.m3u8(\?|#|$)/i.test(src);
+          if (isHls) {
+            if (video.canPlayType("application/vnd.apple.mpegurl")) {
+              video.src = src;
+            } else if (window.Hls && window.Hls.isSupported()) {
+              hlsObj = new window.Hls({
+                enableWorker: true,
+                startLevel: -1, // auto / highest available
+              });
+              hlsObj.loadSource(src);
+              hlsObj.attachMedia(video);
+              hlsObj.on(window.Hls.Events.MANIFEST_PARSED, function (_e, data) {
+                // 强制最高档
+                if (data && data.levels && data.levels.length) {
+                  hlsObj.currentLevel = data.levels.length - 1;
+                  const lv = data.levels[data.levels.length - 1];
+                  if (lv && lv.height) showQuality(lv.height + "p");
+                }
+                video.play().catch(function () {});
+              });
+              hlsObj.on(window.Hls.Events.ERROR, function (_e, data) {
+                if (data && data.fatal) onFail();
+              });
+            } else {
+              onFail();
+            }
+          } else {
+            video.src = src;
+          }
         }
 
         function mountIframe(src) {
+          destroyHls();
           if (!src) {
             showGate("No playable URL");
             return;
@@ -138,12 +204,10 @@
 
         function fixEmbed(url, src, pageUrl) {
           let e = url || "";
-          // 纠正旧链接：XV 数字 embedframe → 用页面 encoded id
           if (/xvideos\.com\/embedframe\/\d+/i.test(e) && pageUrl) {
             const m = String(pageUrl).match(/\/video\.([a-z0-9]+)\//i);
             if (m) e = "https://www.xvideos.com/embedframe/" + m[1];
           }
-          // PH 数字 embed → 从 page 取 viewkey
           if (/pornhub\.com\/embed\/\d+$/i.test(e) && pageUrl) {
             const m = String(pageUrl).match(/viewkey=([a-zA-Z0-9]+)/);
             if (m) e = "https://www.pornhub.com/embed/" + m[1];
@@ -155,8 +219,8 @@
           showGate("Loading…");
           let embed = fixEmbed(embedIn, source, page);
           let stream = streamIn;
+          let quality = null;
 
-          // 优先向 HApi 解析直链；失败仍用 embed iframe，绝不跳出本站
           if (window.HumanityAPI && window.HumanityAPI.getToken && window.HumanityAPI.getToken()) {
             try {
               const d = await window.HumanityAPI.resolvePlay({
@@ -165,12 +229,14 @@
                 source: source,
               });
               if (d && d.stream) stream = d.stream;
+              else if (d && d.hls) stream = d.hls;
               if (d && d.embed) embed = d.embed;
+              if (d && d.quality) quality = d.quality;
             } catch (_) {}
           }
 
           if (stream && /\.(mp4|webm|m3u8)(\?|#|$)/i.test(stream)) {
-            mountVideo(stream, embed);
+            mountVideo(stream, embed, quality);
             return;
           }
           if (embed) {

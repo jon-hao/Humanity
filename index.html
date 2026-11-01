@@ -8,7 +8,7 @@
     />
     <meta name="robots" content="noindex,nofollow" />
     <title>Humanity</title>
-    <link rel="stylesheet" href="./styles.css?v=1" />
+    <link rel="stylesheet" href="./styles.css?v=2" />
   </head>
   <body>
     <div id="loginView" class="view login-view" hidden>
@@ -49,8 +49,11 @@
         </form>
         <button type="button" class="icon-btn" id="logoutBtn" title="Log out">⎋</button>
       </header>
-      <p id="status" class="status"></p>
-      <main id="results" class="grid" aria-live="polite"></main>
+      <div class="scroll-pane" id="appScroll">
+        <div class="ptr-indicator" id="ptrApp" hidden>Release to refresh</div>
+        <p id="status" class="status"></p>
+        <main id="results" class="grid" aria-live="polite"></main>
+      </div>
     </div>
 
     <div id="favView" class="view fav-view" hidden>
@@ -59,12 +62,15 @@
         <h2 class="page-title">Favorites</h2>
         <span class="spacer"></span>
       </header>
-      <main id="favList" class="grid"></main>
+      <div class="scroll-pane" id="favScroll">
+        <div class="ptr-indicator" id="ptrFav" hidden>Release to refresh</div>
+        <main id="favList" class="grid"></main>
+      </div>
     </div>
 
-    <script src="./js/config.js?v=1"></script>
-    <script src="./js/api.js?v=1"></script>
-    <script src="./js/preview.js?v=1"></script>
-    <script src="./js/app.js?v=1"></script>
+    <script src="./js/config.js?v=2"></script>
+    <script src="./js/api.js?v=2"></script>
+    <script src="./js/preview.js?v=2"></script>
+    <script src="./js/app.js?v=2"></script>
   </body>
 </html>

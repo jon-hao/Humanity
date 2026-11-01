@@ -16,6 +16,10 @@
     backBtn: document.getElementById("backBtn"),
     favList: document.getElementById("favList"),
     logoutBtn: document.getElementById("logoutBtn"),
+    appScroll: document.getElementById("appScroll"),
+    favScroll: document.getElementById("favScroll"),
+    ptrApp: document.getElementById("ptrApp"),
+    ptrFav: document.getElementById("ptrFav"),
   };
 
   function escapeHtml(s) {
@@ -114,12 +118,17 @@
       const d = await window.HumanityAPI.search(q, els.source.value, 1);
       const items = (d && d.items) || [];
       if (!items.length) {
-        const errBits = d && d.errors ? Object.entries(d.errors)
-          .map(([k, v]) => k + ": " + v)
-          .join(" · ") : "";
+        const errBits =
+          d && d.errors
+            ? Object.entries(d.errors)
+                .map(([k, v]) => k + ": " + v)
+                .join(" · ")
+            : "";
         els.results.innerHTML =
           '<div class="empty">No results' +
-          (errBits ? "<br/><span class='tiny'>" + escapeHtml(errBits) + "</span>" : "") +
+          (errBits
+            ? "<br/><span class='tiny'>" + escapeHtml(errBits) + "</span>"
+            : "") +
           "</div>";
         els.status.textContent = "";
         return;
@@ -148,13 +157,72 @@
         els.favList.innerHTML = '<div class="empty">No favorites yet</div>';
         return;
       }
-      els.favList.innerHTML = items.map((i) => cardHtml(i, { saved: true })).join("");
+      els.favList.innerHTML = items
+        .map((i) => cardHtml(i, { saved: true }))
+        .join("");
       wireCards(els.favList, items, "fav");
     } catch (err) {
       els.favList.innerHTML =
         '<div class="empty">' + escapeHtml(err.message || err) + "</div>";
       if (err.code === 401) boot();
     }
+  }
+
+  function wirePullToRefresh(pane, indicator, onRefresh) {
+    if (!pane || !indicator) return;
+    let startY = 0;
+    let pulling = false;
+    let refreshing = false;
+
+    pane.addEventListener(
+      "touchstart",
+      (e) => {
+        if (pane.scrollTop > 0 || refreshing) return;
+        startY = e.touches[0].clientY;
+        pulling = true;
+      },
+      { passive: true }
+    );
+
+    pane.addEventListener(
+      "touchmove",
+      (e) => {
+        if (!pulling || refreshing) return;
+        const dy = e.touches[0].clientY - startY;
+        if (dy > 12 && pane.scrollTop <= 0) {
+          indicator.hidden = false;
+          indicator.textContent = dy > 70 ? "Release to refresh" : "Pull to refresh";
+          indicator.style.setProperty("--ptr-y", Math.min(56, dy * 0.35) + "px");
+          if (dy > 70 && e.cancelable) e.preventDefault();
+        }
+      },
+      { passive: false }
+    );
+
+    pane.addEventListener(
+      "touchend",
+      async (e) => {
+        if (!pulling) return;
+        pulling = false;
+        const dy =
+          (e.changedTouches[0] && e.changedTouches[0].clientY) - startY;
+        indicator.style.setProperty("--ptr-y", "0px");
+        if (dy > 70 && pane.scrollTop <= 0 && !refreshing) {
+          refreshing = true;
+          indicator.hidden = false;
+          indicator.textContent = "Refreshing…";
+          try {
+            await onRefresh();
+          } finally {
+            refreshing = false;
+            indicator.hidden = true;
+          }
+        } else {
+          indicator.hidden = true;
+        }
+      },
+      { passive: true }
+    );
   }
 
   async function onLogin(ev) {
@@ -188,6 +256,13 @@
   els.logoutBtn.addEventListener("click", async () => {
     await window.HumanityAPI.logout();
     show("login");
+  });
+
+  wirePullToRefresh(els.appScroll, els.ptrApp, async () => {
+    if (els.q.value.trim()) await runSearch();
+  });
+  wirePullToRefresh(els.favScroll, els.ptrFav, async () => {
+    await openFavorites();
   });
 
   boot();

@@ -18,7 +18,8 @@
 html,
 body {
   margin: 0;
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
   font-family: var(--font);
   color: var(--ink);
   background:
@@ -28,11 +29,48 @@ body {
 }
 
 body {
-  min-height: 100dvh;
+  height: 100dvh;
 }
 
 .view {
+  height: 100dvh;
   min-height: 100dvh;
+}
+
+.app-view,
+.fav-view {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.scroll-pane {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+.ptr-indicator {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--elev) 90%, transparent);
+  border: 1px solid var(--line);
+  color: var(--brand-2);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  transform: translateY(var(--ptr-y, 0px));
+  pointer-events: none;
 }
 
 .login-view {

@@ -571,13 +571,23 @@ select {
 }
 
 .thumb-btn img.thumb-broken {
-  display: none;
+  display: none !important;
+  visibility: hidden !important;
 }
 
 .thumb-btn.no-thumb {
   background:
-    linear-gradient(135deg, #1a222e, #0a0d12 60%),
-    #000;
+    linear-gradient(135deg, color-mix(in srgb, var(--elev) 80%, #000), var(--bg) 70%),
+    var(--bg);
+}
+
+.thumb-btn.no-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 40%, color-mix(in srgb, var(--brand) 18%, transparent), transparent 55%);
+  pointer-events: none;
 }
 
 .thumb-btn .preview-video {

@@ -167,6 +167,29 @@ window.HumanityAPI = (function () {
     return hapi("hfav", { action: "remove", id }, { method: "POST" });
   }
 
+  async function hasFavorite(id) {
+    return hapi("hfav", { action: "has", id }, { method: "POST" });
+  }
+
+  async function addActor(name) {
+    return hapi("hfav", { action: "addActor", name }, { method: "POST" });
+  }
+
+  async function removeActor(name) {
+    return hapi("hfav", { action: "removeActor", name }, { method: "POST" });
+  }
+
+  async function related(opts) {
+    return hapi(
+      "hrelated",
+      {
+        page: opts && opts.page,
+        source: opts && opts.source,
+      },
+      { method: "POST", timeout: 45000 }
+    );
+  }
+
   async function changePassword(email, currentPassword, newPassword) {
     const base = String(cfg().apiBase || "").replace(/\/$/, "");
     if (!base) throw new Error("apiBase missing");
@@ -204,8 +227,12 @@ window.HumanityAPI = (function () {
     meta,
     search,
     resolvePlay,
+    related,
     listFavorites,
     addFavorite,
     removeFavorite,
+    hasFavorite,
+    addActor,
+    removeActor,
   };
 })();

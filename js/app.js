@@ -20,6 +20,10 @@
     profileBtn: document.getElementById("profileBtn"),
     backBtn: document.getElementById("backBtn"),
     favList: document.getElementById("favList"),
+    actorList: document.getElementById("actorList"),
+    addActorBtn: document.getElementById("addActorBtn"),
+    actorForm: document.getElementById("actorForm"),
+    actorName: document.getElementById("actorName"),
     logoutBtn: document.getElementById("logoutBtn"),
     appScroll: document.getElementById("appScroll"),
     favScroll: document.getElementById("favScroll"),
@@ -40,7 +44,6 @@
     backToLogin: document.getElementById("backToLogin"),
     playModal: document.getElementById("playModal"),
     playFrame: document.getElementById("playFrame"),
-    playClose: document.getElementById("playClose"),
   };
 
   let sourceCtl = null;
@@ -99,6 +102,9 @@
     document.querySelectorAll("[data-i18n]").forEach((node) => {
       node.textContent = window.ht(node.getAttribute("data-i18n"));
     });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
+      node.placeholder = window.ht(node.getAttribute("data-i18n-placeholder"));
+    });
     if (els.q) els.q.placeholder = window.ht("search");
     if (els.profileBtn) {
       els.profileBtn.title = window.ht("profile");
@@ -107,10 +113,6 @@
     if (els.backBtn) {
       els.backBtn.title = window.ht("back");
       els.backBtn.setAttribute("aria-label", window.ht("back"));
-    }
-    if (els.playClose) {
-      els.playClose.setAttribute("aria-label", window.ht("close"));
-      els.playClose.title = window.ht("close");
     }
     if (loginLangCtl) loginLangCtl.refresh(langOptions(), lang);
     if (langCtl) langCtl.refresh(langOptions(), lang);
@@ -215,6 +217,9 @@
       source: item.source || null,
       title: item.title || null,
       poster: item.thumb || null,
+      preview: item.preview || null,
+      duration: item.duration || null,
+      quality: item.quality || null,
       at: Date.now(),
     });
     // 新标签页读不到 sessionStorage，必须用 localStorage
@@ -479,12 +484,82 @@
     }
   }
 
+  function renderActors(actors) {
+    if (!els.actorList) return;
+    const list = Array.isArray(actors) ? actors : [];
+    if (!list.length) {
+      els.actorList.innerHTML =
+        '<div class="empty actor-empty">' +
+        escapeHtml(window.ht("noActors")) +
+        "</div>";
+      return;
+    }
+    els.actorList.innerHTML = list
+      .map(
+        (a) =>
+          `<div class="actor-chip" data-name="${escapeHtml(a.name || "")}">
+            <button type="button" class="actor-name" data-actor-search>${escapeHtml(
+              a.name || ""
+            )}</button>
+            <button type="button" class="actor-remove" data-actor-remove aria-label="${escapeHtml(
+              window.ht("unsave")
+            )}">×</button>
+          </div>`
+      )
+      .join("");
+    els.actorList.querySelectorAll("[data-actor-search]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const name =
+          (btn.closest(".actor-chip") &&
+            btn.closest(".actor-chip").getAttribute("data-name")) ||
+          btn.textContent;
+        searchActor(name);
+      });
+    });
+    els.actorList.querySelectorAll("[data-actor-remove]").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const chip = btn.closest(".actor-chip");
+        const name = chip && chip.getAttribute("data-name");
+        if (!name) return;
+        try {
+          await window.HumanityAPI.removeActor(name);
+          chip.remove();
+          if (!els.actorList.querySelector(".actor-chip")) {
+            renderActors([]);
+          }
+        } catch (err) {
+          alert(String(err.message || err));
+          if (err.code === 401) boot();
+        }
+      });
+    });
+  }
+
+  function searchActor(name) {
+    const q = String(name || "").trim();
+    if (!q) return;
+    show("app");
+    if (els.actorForm) els.actorForm.hidden = true;
+    els.q.value = q;
+    page = 1;
+    runSearch(null, { reset: true });
+  }
+
   async function openFavorites() {
     show("fav");
+    if (els.actorForm) els.actorForm.hidden = true;
+    if (els.actorName) els.actorName.value = "";
+    if (els.actorList) {
+      els.actorList.innerHTML = '<div class="skel actor-skel"></div>';
+    }
     els.favList.innerHTML = '<div class="skel"></div>'.repeat(4);
     try {
       const d = await window.HumanityAPI.listFavorites();
       const items = (d && d.items) || [];
+      const actors = (d && d.actors) || [];
+      renderActors(actors);
       if (!items.length) {
         els.favList.innerHTML =
           '<div class="empty">' + escapeHtml(window.ht("noFavorites")) + "</div>";
@@ -495,6 +570,10 @@
         .join("");
       wireCards(els.favList, items, "fav");
     } catch (err) {
+      if (els.actorList) {
+        els.actorList.innerHTML =
+          '<div class="empty">' + escapeHtml(err.message || err) + "</div>";
+      }
       els.favList.innerHTML =
         '<div class="empty">' + escapeHtml(err.message || err) + "</div>";
       if (err.code === 401) boot();
@@ -738,12 +817,39 @@
   }
   if (els.themeBtn) els.themeBtn.addEventListener("click", toggleTheme);
   if (els.loginThemeBtn) els.loginThemeBtn.addEventListener("click", toggleTheme);
-  if (els.playClose) {
-    els.playClose.addEventListener("click", closePlayModal);
-  }
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closePlayModal();
   });
+  window.addEventListener("message", (e) => {
+    const data = e && e.data;
+    if (data && data.type === "humanity-play-close") closePlayModal();
+  });
+
+  if (els.addActorBtn && els.actorForm) {
+    els.addActorBtn.addEventListener("click", () => {
+      const open = els.actorForm.hidden;
+      els.actorForm.hidden = !open;
+      if (open && els.actorName) {
+        els.actorName.focus();
+      }
+    });
+  }
+  if (els.actorForm) {
+    els.actorForm.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const name = els.actorName ? els.actorName.value.trim() : "";
+      if (!name) return;
+      try {
+        await window.HumanityAPI.addActor(name);
+        if (els.actorName) els.actorName.value = "";
+        els.actorForm.hidden = true;
+        await openFavorites();
+      } catch (err) {
+        alert(String(err.message || err));
+        if (err.code === 401) boot();
+      }
+    });
+  }
 
   if (els.pagePrev) {
     els.pagePrev.addEventListener("click", () => {

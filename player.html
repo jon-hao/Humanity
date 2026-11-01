@@ -95,8 +95,8 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=10"></script>
-    <script src="./js/api.js?v=10"></script>
+    <script src="./js/config.js?v=11"></script>
+    <script src="./js/api.js?v=11"></script>
   </head>
   <body>
     <div class="stage" id="stage"></div>
@@ -110,12 +110,13 @@
         let hlsObj = null;
         let poster = "";
 
-        function showGate(msg, withHome) {
+        function showGate(msg, linkMode) {
           stage.classList.remove("has-media");
           let extra = "";
-          if (withHome) {
-            extra =
-              '<p><a href="./">Sign in</a></p>';
+          if (linkMode === "signin") {
+            extra = '<p><a href="./">Sign in</a></p>';
+          } else if (linkMode === "home") {
+            extra = '<p><a href="./">Back</a></p>';
           }
           stage.innerHTML =
             '<div class="gate"><h1>' +
@@ -213,10 +214,22 @@
           stage.appendChild(iframe);
         }
 
+        function readStore(key) {
+          try {
+            const a = localStorage.getItem(key);
+            if (a) return a;
+          } catch (_) {}
+          try {
+            return sessionStorage.getItem(key);
+          } catch (_) {
+            return null;
+          }
+        }
+
         function readPlayContext(playId) {
           if (!playId) return null;
           try {
-            const raw = sessionStorage.getItem(PLAY_STORE_PREFIX + playId);
+            const raw = readStore(PLAY_STORE_PREFIX + playId);
             if (!raw) return null;
             const data = JSON.parse(raw);
             return data && typeof data === "object" ? data : null;
@@ -228,23 +241,24 @@
         async function start() {
           showGate("Loading…");
 
-          if (
-            !window.HumanityAPI ||
-            !window.HumanityAPI.getToken ||
-            !window.HumanityAPI.getToken()
-          ) {
-            showGate("Sign in required to play", true);
+          const authed =
+            window.HumanityAPI &&
+            window.HumanityAPI.getToken &&
+            !!window.HumanityAPI.getToken();
+
+          if (!authed) {
+            showGate("Sign in required to play", "signin");
             return;
           }
 
           if (!id) {
-            showGate("Missing video", true);
+            showGate("Missing video", "home");
             return;
           }
 
           const ctx = readPlayContext(id);
-          if (!ctx) {
-            showGate("Open a video from the library", true);
+          if (!ctx || (!ctx.page && !ctx.embed)) {
+            showGate("Open a video from the library", "home");
             return;
           }
 
@@ -270,10 +284,10 @@
             if (d && d.quality) quality = d.quality;
           } catch (err) {
             if (err && err.code === 401) {
-              showGate("Sign in required to play", true);
+              showGate("Sign in required to play", "signin");
               return;
             }
-            showGate(String((err && err.message) || "Unable to resolve stream"));
+            showGate(String((err && err.message) || "Unable to resolve stream"), "home");
             return;
           }
 

@@ -40,6 +40,7 @@
   let page = 1;
   let hasMore = false;
   let lastQuery = "";
+  let feedLoaded = false;
   let syncingUrl = false;
   let sourceOptions = [{ value: "all", label: "All sources" }];
   const PLAY_STORE_PREFIX = "humanity-play:";
@@ -227,10 +228,8 @@
     const sp = new URLSearchParams();
     const query = String(q || "").trim();
     const pageNo = Math.max(1, Number(pg) || 1);
-    if (query) {
-      sp.set("query", query);
-      sp.set("page", String(pageNo));
-    }
+    if (query) sp.set("query", query);
+    if (pageNo > 1) sp.set("page", String(pageNo));
     const src = sourceValue();
     if (src && src !== "all") sp.set("source", src);
     const qs = sp.toString();
@@ -244,18 +243,21 @@
   }
 
   function stashPlay(item) {
+    const payload = JSON.stringify({
+      id: item.id,
+      page: item.url || null,
+      embed: item.embed || null,
+      source: item.source || null,
+      title: item.title || null,
+      poster: item.thumb || null,
+      at: Date.now(),
+    });
+    // 新标签页读不到 sessionStorage，必须用 localStorage
     try {
-      sessionStorage.setItem(
-        PLAY_STORE_PREFIX + item.id,
-        JSON.stringify({
-          id: item.id,
-          page: item.url || null,
-          embed: item.embed || null,
-          source: item.source || null,
-          title: item.title || null,
-          poster: item.thumb || null,
-        })
-      );
+      localStorage.setItem(PLAY_STORE_PREFIX + item.id, payload);
+    } catch (_) {}
+    try {
+      sessionStorage.setItem(PLAY_STORE_PREFIX + item.id, payload);
     } catch (_) {}
   }
 
@@ -313,7 +315,7 @@
 
   function updatePager() {
     if (!els.pager) return;
-    const showPager = !!lastQuery && (page > 1 || hasMore);
+    const showPager = feedLoaded && (page > 1 || hasMore);
     els.pager.hidden = !showPager;
     if (els.pageLabel) {
       els.pageLabel.textContent = window.ht("page") + " " + page;
@@ -365,11 +367,11 @@
   async function runSearch(ev, opts) {
     if (ev) ev.preventDefault();
     const q = els.q.value.trim();
-    if (!q) return;
     const reset = !opts || opts.reset !== false;
     const fromUrl = opts && opts.fromUrl;
     if (reset) page = 1;
     lastQuery = q;
+    feedLoaded = true;
     if (!fromUrl) writeRoute(q, page, !!opts && opts.replaceUrl);
     els.status.textContent = "…";
     els.results.innerHTML = '<div class="skel"></div>'.repeat(8);
@@ -394,7 +396,9 @@
         updatePager();
         return;
       }
+      const modeLabel = q ? "" : window.ht("recommended") + " · ";
       els.status.textContent =
+        modeLabel +
         items.length +
         " " +
         window.ht("results") +
@@ -506,10 +510,6 @@
   }
 
   function onSourceChange() {
-    if (!lastQuery && !els.q.value.trim()) {
-      writeRoute("", 1, true);
-      return;
-    }
     page = 1;
     runSearch(null, { reset: true });
   }
@@ -557,13 +557,13 @@
       show("app");
       const route = readRoute();
       await loadSources(route.source);
-      if (route.q) {
-        els.q.value = route.q;
-        page = route.page;
-        await runSearch(null, { reset: false, fromUrl: true, replaceUrl: true });
-      } else {
-        els.q.focus();
-      }
+      els.q.value = route.q || "";
+      page = route.page || 1;
+      await runSearch(null, {
+        reset: false,
+        fromUrl: true,
+        replaceUrl: true,
+      });
     } catch (err) {
       els.loginErr.textContent = String(err.message || err);
     } finally {
@@ -591,11 +591,13 @@
           return;
         }
       }
-      if (route.q) {
-        els.q.value = route.q;
-        page = route.page;
-        await runSearch(null, { reset: false, fromUrl: true, replaceUrl: true });
-      }
+      els.q.value = route.q || "";
+      page = route.page || 1;
+      await runSearch(null, {
+        reset: false,
+        fromUrl: true,
+        replaceUrl: true,
+      });
       return;
     }
     show("login");
@@ -658,18 +660,8 @@
     if (!window.HumanityAPI.getToken()) return;
     const route = readRoute();
     if (route.source && sourceCtl) sourceCtl.setValue(route.source);
-    if (!route.q) {
-      lastQuery = "";
-      page = 1;
-      hasMore = false;
-      els.q.value = "";
-      els.results.innerHTML = "";
-      els.status.textContent = "";
-      updatePager();
-      return;
-    }
-    els.q.value = route.q;
-    page = route.page;
+    els.q.value = route.q || "";
+    page = route.page || 1;
     runSearch(null, { reset: false, fromUrl: true });
   });
 
@@ -679,7 +671,7 @@
   });
 
   wirePullToRefresh(els.appScroll, els.ptrApp, async () => {
-    if (els.q.value.trim()) await runSearch(null, { reset: false, replaceUrl: true });
+    if (feedLoaded) await runSearch(null, { reset: false, replaceUrl: true });
   });
   wirePullToRefresh(els.favScroll, els.ptrFav, async () => {
     await openFavorites();

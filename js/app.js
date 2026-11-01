@@ -55,8 +55,40 @@
   let lastQuery = "";
   let feedLoaded = false;
   let syncingUrl = false;
-  let sourceOptions = [{ value: "all", label: "All sources" }];
+  let sourceOptions = [];
   const PLAY_STORE_PREFIX = "humanity-play:";
+  const SOURCE_STORE_KEY = "humanity-sources";
+
+  function readCachedSources() {
+    try {
+      const raw = localStorage.getItem(SOURCE_STORE_KEY);
+      if (!raw) return null;
+      return String(raw).trim() || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function writeCachedSources(val) {
+    try {
+      const channels = sourceOptions
+        .map((o) => o.value)
+        .filter((v) => v && v !== "all");
+      if (!channels.length) return;
+      let s = Array.isArray(val)
+        ? val.filter((x) => x && x !== "all" && channels.includes(x)).join(",")
+        : String(val || "");
+      if (!s || s === "all") s = channels.join(",");
+      else {
+        const parts = s
+          .split(/[,+|]/)
+          .map((x) => x.trim())
+          .filter((x) => channels.includes(x));
+        s = parts.length ? parts.join(",") : channels.join(",");
+      }
+      localStorage.setItem(SOURCE_STORE_KEY, s);
+    } catch (_) {}
+  }
 
   function escapeHtml(s) {
     return String(s || "")
@@ -657,22 +689,46 @@
   }
 
   function onSourceChange() {
+    writeCachedSources(
+      sourceCtl && sourceCtl.values ? sourceCtl.values : sourceValue()
+    );
     page = 1;
     runSearch(null, { reset: true });
   }
 
+  function resolveInitialSources(preferred) {
+    const channels = sourceOptions
+      .map((o) => o.value)
+      .filter((v) => v && v !== "all");
+    if (preferred && preferred !== "all") {
+      const parts = String(preferred)
+        .split(/[,+|]/)
+        .map((s) => s.trim())
+        .filter((s) => channels.includes(s));
+      if (parts.length) return parts.join(",");
+    }
+    const cached = readCachedSources();
+    if (cached) {
+      const parts = String(cached)
+        .split(/[,+|]/)
+        .map((s) => s.trim())
+        .filter((s) => channels.includes(s));
+      if (parts.length) return parts.join(",");
+    }
+    return channels.join(",");
+  }
+
   function mountSources(options, selected) {
-    sourceOptions =
-      Array.isArray(options) && options.length
-        ? options.map((o) => ({
-            value: String(o.value),
-            label: String(o.label || o.value),
-          }))
-        : [{ value: "all", label: "All sources" }];
-    const initial =
-      selected && sourceOptions.some((o) => o.value === selected)
-        ? selected
-        : sourceOptions[0].value;
+    sourceOptions = (
+      Array.isArray(options) && options.length ? options : []
+    )
+      .map((o) => ({
+        value: String(o.value),
+        label: String(o.label || o.value),
+      }))
+      .filter((o) => o.value && o.value !== "all");
+    const initial = resolveInitialSources(selected);
+    writeCachedSources(initial);
     if (!els.sourceSelect) return;
     if (sourceCtl && typeof sourceCtl.refresh === "function") {
       sourceCtl.refresh(sourceOptions, initial);
@@ -689,7 +745,10 @@
 
   async function loadSources(preferred) {
     const d = await window.HumanityAPI.meta();
-    mountSources((d && d.sources) || sourceOptions, preferred || sourceValue());
+    mountSources(
+      (d && d.sources) || sourceOptions,
+      preferred || readCachedSources() || sourceValue()
+    );
   }
 
   async function onLogin(ev) {
@@ -723,7 +782,7 @@
     applyTheme();
     applyLang();
     const route = readRoute();
-    mountSources(sourceOptions, route.source || "all");
+    mountSources(sourceOptions, route.source || readCachedSources());
     if (window.HumanityAPI.getToken()) {
       show("app");
       const sess = await window.HumanityAPI.check();
@@ -732,7 +791,7 @@
         return;
       }
       try {
-        await loadSources(route.source);
+        await loadSources(route.source || readCachedSources());
       } catch (err) {
         if (err && err.code === 401) {
           show("login");

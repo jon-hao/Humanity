@@ -25,32 +25,53 @@ window.HumanitySelect = (function () {
     let selected = normalizeValue(value, options, multi);
 
     function channelOptions() {
-      return (options || []).filter((o) => o.value !== "all");
+      return (options || []).filter((o) => o && o.value && o.value !== "all");
+    }
+
+    function allValues() {
+      return channelOptions().map((o) => o.value);
     }
 
     function normalizeValue(v, optsList, isMulti) {
-      const allOpts = optsList || options || [];
+      const channels = (optsList || options || [])
+        .filter((o) => o && o.value && o.value !== "all")
+        .map((o) => o.value);
       if (!isMulti) {
         const s = Array.isArray(v) ? v[0] : String(v || "");
-        if (allOpts.some((o) => o.value === s)) return s;
-        return (allOpts[0] && allOpts[0].value) || "all";
+        if (channels.includes(s)) return s;
+        return channels[0] || "";
       }
       let parts = [];
       if (Array.isArray(v)) parts = v.slice();
-      else if (v == null || v === "" || v === "all") parts = ["all"];
-      else parts = String(v).split(/[,+|]/).map((x) => x.trim()).filter(Boolean);
-      if (!parts.length || parts.includes("all")) return ["all"];
-      const allowed = new Set(channelOptions().map((o) => o.value));
-      const next = parts.filter((p) => allowed.has(p));
-      return next.length ? next : ["all"];
+      else if (v == null || v === "" || v === "all") parts = channels.slice();
+      else
+        parts = String(v)
+          .split(/[,+|]/)
+          .map((x) => x.trim())
+          .filter(Boolean);
+      parts = parts.filter((p) => p !== "all" && channels.includes(p));
+      if (!parts.length) return channels.slice();
+      // 去重并保持 options 顺序
+      return channels.filter((c) => parts.includes(c));
+    }
+
+    function isAllSelected(vals) {
+      const channels = allValues();
+      return (
+        !!channels.length &&
+        vals.length >= channels.length &&
+        channels.every((c) => vals.includes(c))
+      );
     }
 
     function labelOf(v) {
       if (multi) {
         const vals = Array.isArray(v) ? v : normalizeValue(v, options, true);
-        if (!vals.length || vals.includes("all")) {
-          const all = options.find((o) => o.value === "all");
-          return all ? all.label : "All sources";
+        if (isAllSelected(vals)) {
+          return (
+            (typeof window.ht === "function" && window.ht("allSelected")) ||
+            "All sources"
+          );
         }
         if (vals.length === 1) {
           const opt = options.find((o) => o.value === vals[0]);
@@ -64,7 +85,7 @@ window.HumanitySelect = (function () {
 
     function renderBtn() {
       root.dataset.value = multi
-        ? selected.includes("all")
+        ? isAllSelected(selected)
           ? "all"
           : selected.join(",")
         : selected;
@@ -74,11 +95,7 @@ window.HumanitySelect = (function () {
         '</span><span class="sq-caret" aria-hidden="true"></span>';
       list.querySelectorAll(".sq-option").forEach((el) => {
         const val = el.dataset.value;
-        const on = multi
-          ? selected.includes("all")
-            ? val === "all"
-            : selected.includes(val)
-          : selected === val;
+        const on = multi ? selected.includes(val) : selected === val;
         el.classList.toggle("active", on);
         el.setAttribute("aria-selected", on ? "true" : "false");
       });
@@ -97,22 +114,21 @@ window.HumanitySelect = (function () {
     }
 
     function toggleMulti(val) {
-      if (val === "all") {
-        selected = ["all"];
+      let cur = selected.slice();
+      if (cur.includes(val)) {
+        if (cur.length <= 1) return; // 至少保留一个
+        cur = cur.filter((x) => x !== val);
       } else {
-        let cur = selected.includes("all") ? [] : selected.slice();
-        if (cur.includes(val)) cur = cur.filter((x) => x !== val);
-        else cur.push(val);
-        const channels = channelOptions().map((o) => o.value);
-        if (!cur.length || cur.length >= channels.length) selected = ["all"];
-        else selected = cur;
+        cur.push(val);
+        cur = allValues().filter((c) => cur.includes(c));
       }
+      selected = cur;
       renderBtn();
       emit();
     }
 
     function rebuild(opts) {
-      options = opts;
+      options = (opts || []).filter((o) => o && o.value !== "all");
       selected = normalizeValue(selected, options, multi);
       list.innerHTML = "";
       options.forEach((opt) => {
@@ -166,7 +182,7 @@ window.HumanitySelect = (function () {
     return {
       get value() {
         return multi
-          ? selected.includes("all")
+          ? isAllSelected(selected)
             ? "all"
             : selected.join(",")
           : selected;

@@ -95,8 +95,8 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=15"></script>
-    <script src="./js/api.js?v=15"></script>
+    <script src="./js/config.js?v=16"></script>
+    <script src="./js/api.js?v=16"></script>
   </head>
   <body>
     <div class="stage" id="stage"></div>
@@ -271,17 +271,19 @@
           let embed = ctx.embed || null;
           let stream = null;
           let quality = null;
+          let source = ctx.source || null;
 
           try {
             const d = await window.HumanityAPI.resolvePlay({
               page: ctx.page || null,
               embed: embed,
-              source: ctx.source || null,
+              source: source,
             });
             if (d && d.stream) stream = d.stream;
             else if (d && d.hls) stream = d.hls;
             if (d && d.embed) embed = d.embed;
             if (d && d.quality) quality = d.quality;
+            if (d && d.source) source = d.source;
           } catch (err) {
             if (err && err.code === 401) {
               showGate("Sign in required to play", "signin");
@@ -291,12 +293,23 @@
             return;
           }
 
-          if (stream && /\.(mp4|webm|m3u8)(\?|#|$)/i.test(stream)) {
+          const isMedia =
+            stream && /\.(mp4|webm|m3u8)(\?|#|$)/i.test(stream);
+          // 实测仅 ch2（XVideos）直链稳定可播；其余优先 embed，避免坏链闪一下再退回
+          const preferVideo =
+            source === "ch2" ||
+            /xvideos/i.test(String(stream || "") + String(embed || ""));
+
+          if (preferVideo && isMedia) {
             mountVideo(stream, embed, quality);
             return;
           }
           if (embed) {
             mountIframe(embed);
+            return;
+          }
+          if (isMedia) {
+            mountVideo(stream, null, quality);
             return;
           }
           showGate("No playable URL");

@@ -17,11 +17,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Publish static site to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
-          force_orphan: true
-          exclude_assets: ".github,*.md,.gitignore"
-          commit_message: "deploy: sync static site from main"
+          fetch-depth: 0
+      - name: Publish static files to gh-pages
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          WORK="$(mktemp -d)"
+          rsync -a \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.gitignore' \
+            ./ "$WORK/"
+          git fetch origin gh-pages:gh-pages || true
+          git checkout --orphan gh-pages-tmp
+          git reset
+          rsync -a "$WORK"/ ./
+          touch .nojekyll
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "deploy: sync static site from main"
+          git push -f origin HEAD:gh-pages

@@ -656,6 +656,37 @@ select {
   letter-spacing: 0.04em;
 }
 
+.quality-badge {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #e8a05c;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.duration-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #e8eef8;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
 .card-body {
   padding: 10px;
   display: grid;

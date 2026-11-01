@@ -1,4 +1,5 @@
-:root {
+:root,
+[data-theme="dark"] {
   --bg: #0c0f14;
   --elev: #151a22;
   --ink: #e8eef8;
@@ -7,8 +8,24 @@
   --brand: #c45c26;
   --brand-2: #e8a05c;
   --danger: #c44;
+  --input: #0a0d12;
+  --shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
   --font: "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
   color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #f2eee8;
+  --elev: #ffffff;
+  --ink: #1a1f29;
+  --muted: #667085;
+  --line: rgba(26, 31, 41, 0.12);
+  --brand: #b24a1c;
+  --brand-2: #c45c26;
+  --danger: #c44;
+  --input: #f7f4ef;
+  --shadow: 0 12px 28px rgba(26, 31, 41, 0.12);
+  color-scheme: light;
 }
 
 * {
@@ -126,10 +143,120 @@ input,
 select {
   width: 100%;
   border: 1px solid var(--line);
-  background: #0a0d12;
+  background: var(--input);
   color: var(--ink);
   border-radius: 8px;
   padding: 10px 12px;
+}
+
+.login-tools {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.login-tools .sq-select {
+  min-width: 120px;
+  flex: 0 0 auto;
+  max-width: none;
+}
+
+.icon-btn.icon-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 0;
+}
+
+.icon-btn.icon-only svg {
+  display: block;
+}
+
+.theme-icon {
+  display: none;
+  line-height: 0;
+}
+
+[data-theme="light"] .theme-sun,
+[data-theme="dark"] .theme-moon {
+  display: block;
+}
+
+.lang-select {
+  flex: 0 0 108px;
+  min-width: 96px;
+  max-width: 130px;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  place-items: end center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 16px;
+}
+
+.modal.open {
+  display: grid;
+}
+
+.sheet {
+  width: min(420px, 100%);
+  max-height: min(88dvh, 640px);
+  overflow: auto;
+  background: var(--elev);
+  border: 1px solid var(--line);
+  border-radius: 16px 16px 12px 12px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sheet-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.account-sheet {
+  display: grid;
+  gap: 12px;
+}
+
+.account-email {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+
+.account-sub {
+  margin: 4px 0 0;
+  font-size: 0.95rem;
+}
+
+.account-field {
+  display: grid;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.account-logout {
+  justify-self: center;
 }
 
 .btn {
@@ -279,7 +406,7 @@ select {
   justify-content: space-between;
   gap: 6px;
   border: 1px solid var(--line);
-  background: #0a0d12;
+  background: var(--input);
   color: var(--ink);
   border-radius: 8px;
   padding: 10px 10px;
@@ -319,7 +446,7 @@ select {
   border-radius: 10px;
   border: 1px solid var(--line);
   background: var(--elev);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow);
   max-height: 240px;
   overflow: auto;
 }

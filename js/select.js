@@ -29,21 +29,27 @@ window.HumanitySelect = (function () {
       if (!silent && typeof onChange === "function") onChange(v);
     }
 
-    options.forEach((opt) => {
-      const item = document.createElement("button");
-      item.type = "button";
-      item.className = "sq-option";
-      item.dataset.value = opt.value;
-      item.setAttribute("role", "option");
-      item.textContent = opt.label;
-      item.addEventListener("click", (e) => {
-        e.stopPropagation();
-        list.hidden = true;
-        root.classList.remove("open");
-        setValue(opt.value);
+    function rebuild(opts) {
+      options = opts;
+      list.innerHTML = "";
+      options.forEach((opt) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "sq-option";
+        item.dataset.value = opt.value;
+        item.setAttribute("role", "option");
+        item.textContent = opt.label;
+        item.addEventListener("click", (e) => {
+          e.stopPropagation();
+          list.hidden = true;
+          root.classList.remove("open");
+          setValue(opt.value);
+        });
+        list.appendChild(item);
       });
-      list.appendChild(item);
-    });
+    }
+
+    rebuild(options);
 
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -68,6 +74,10 @@ window.HumanitySelect = (function () {
         return root.dataset.value;
       },
       setValue: (v) => setValue(v, true),
+      refresh(opts, v) {
+        rebuild(opts || options);
+        setValue(v != null ? v : root.dataset.value, true);
+      },
     };
   }
 

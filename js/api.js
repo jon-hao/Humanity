@@ -167,6 +167,18 @@ window.HumanityAPI = (function () {
     return hapi("hfav", { action: "remove", id }, { method: "POST" });
   }
 
+  async function changePassword(currentPassword, newPassword) {
+    return hapi(
+      "hauth",
+      {
+        action: "password",
+        currentPassword,
+        newPassword,
+      },
+      { method: "POST", timeout: 20000 }
+    );
+  }
+
   return {
     getToken,
     getEmail,
@@ -175,6 +187,7 @@ window.HumanityAPI = (function () {
     login,
     check,
     logout,
+    changePassword,
     meta,
     search,
     resolvePlay,

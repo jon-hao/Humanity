@@ -171,6 +171,16 @@
     );
   }
 
+  function sourceValues() {
+    if (sourceCtl && Array.isArray(sourceCtl.values)) return sourceCtl.values;
+    const raw = sourceValue();
+    if (!raw || raw === "all") return ["all"];
+    return String(raw)
+      .split(/[,+|]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
   function show(view) {
     const map = { login: els.login, app: els.app, fav: els.fav };
     Object.keys(map).forEach((k) => {
@@ -672,7 +682,8 @@
       els.sourceSelect,
       sourceOptions,
       initial,
-      onSourceChange
+      onSourceChange,
+      { multi: true }
     );
   }
 

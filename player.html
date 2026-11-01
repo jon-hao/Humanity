@@ -6,7 +6,12 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no"
     />
-    <meta name="robots" content="noindex,nofollow" />
+    <meta
+      name="robots"
+      content="noindex,nofollow,noarchive,nosnippet,noimageindex"
+    />
+    <meta name="googlebot" content="noindex,nofollow,noarchive,nosnippet,noimageindex" />
+    <meta name="referrer" content="no-referrer" />
     <meta name="theme-color" content="#0c0f14" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="icon" href="./icons/favicon-32.png" type="image/png" sizes="32x32" />
@@ -72,6 +77,9 @@
         font-size: 0.9rem;
         max-width: 36rem;
       }
+      .gate a {
+        color: #9ec1ff;
+      }
       .quality-tag {
         position: fixed;
         left: 12px;
@@ -87,32 +95,36 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=7"></script>
-    <script src="./js/api.js?v=7"></script>
+    <script src="./js/config.js?v=9"></script>
+    <script src="./js/api.js?v=9"></script>
   </head>
   <body>
     <div class="stage" id="stage"></div>
     <script>
       (function () {
+        const PLAY_STORE_PREFIX = "humanity-play:";
         const p = new URLSearchParams(location.search);
-        const embedIn = p.get("embed");
-        const page = p.get("page");
-        const streamIn = p.get("stream");
-        const title = p.get("title") || "Video";
-        const poster = p.get("poster") || "";
-        const source = p.get("source") || "";
-        document.title = title + " · Humanity";
+        const id = p.get("id") || "";
+        let title = p.get("title") || "Video";
         const stage = document.getElementById("stage");
         let hlsObj = null;
+        let poster = "";
 
-        function showGate(msg) {
+        function showGate(msg, withHome) {
           stage.classList.remove("has-media");
+          let extra = "";
+          if (withHome) {
+            extra =
+              '<p><a href="./">Sign in</a></p>';
+          }
           stage.innerHTML =
             '<div class="gate"><h1>' +
             String(title).replace(/</g, "&lt;") +
             "</h1><p>" +
             String(msg || "Unable to play").replace(/</g, "&lt;") +
-            "</p></div>";
+            "</p>" +
+            extra +
+            "</div>";
         }
 
         function showQuality(q) {
@@ -161,12 +173,11 @@
             } else if (window.Hls && window.Hls.isSupported()) {
               hlsObj = new window.Hls({
                 enableWorker: true,
-                startLevel: -1, // auto / highest available
+                startLevel: -1,
               });
               hlsObj.loadSource(src);
               hlsObj.attachMedia(video);
               hlsObj.on(window.Hls.Events.MANIFEST_PARSED, function (_e, data) {
-                // 强制最高档
                 if (data && data.levels && data.levels.length) {
                   hlsObj.currentLevel = data.levels.length - 1;
                   const lv = data.levels[data.levels.length - 1];
@@ -202,37 +213,68 @@
           stage.appendChild(iframe);
         }
 
-        function fixEmbed(url, src, pageUrl) {
-          let e = url || "";
-          if (/xvideos\.com\/embedframe\/\d+/i.test(e) && pageUrl) {
-            const m = String(pageUrl).match(/\/video\.([a-z0-9]+)\//i);
-            if (m) e = "https://www.xvideos.com/embedframe/" + m[1];
+        function readPlayContext(playId) {
+          if (!playId) return null;
+          try {
+            const raw = sessionStorage.getItem(PLAY_STORE_PREFIX + playId);
+            if (!raw) return null;
+            const data = JSON.parse(raw);
+            return data && typeof data === "object" ? data : null;
+          } catch (_) {
+            return null;
           }
-          if (/pornhub\.com\/embed\/\d+$/i.test(e) && pageUrl) {
-            const m = String(pageUrl).match(/viewkey=([a-zA-Z0-9]+)/);
-            if (m) e = "https://www.pornhub.com/embed/" + m[1];
-          }
-          return e;
         }
 
         async function start() {
           showGate("Loading…");
-          let embed = fixEmbed(embedIn, source, page);
-          let stream = streamIn;
+
+          if (
+            !window.HumanityAPI ||
+            !window.HumanityAPI.getToken ||
+            !window.HumanityAPI.getToken()
+          ) {
+            showGate("Sign in required to play", true);
+            return;
+          }
+
+          if (!id) {
+            showGate("Missing video", true);
+            return;
+          }
+
+          const ctx = readPlayContext(id);
+          if (!ctx) {
+            showGate("Open a video from the library", true);
+            return;
+          }
+
+          if (ctx.title) {
+            title = ctx.title;
+            document.title = title + " · Humanity";
+          }
+          if (ctx.poster) poster = ctx.poster;
+
+          let embed = ctx.embed || null;
+          let stream = null;
           let quality = null;
 
-          if (window.HumanityAPI && window.HumanityAPI.getToken && window.HumanityAPI.getToken()) {
-            try {
-              const d = await window.HumanityAPI.resolvePlay({
-                page: page,
-                embed: embed,
-                source: source,
-              });
-              if (d && d.stream) stream = d.stream;
-              else if (d && d.hls) stream = d.hls;
-              if (d && d.embed) embed = d.embed;
-              if (d && d.quality) quality = d.quality;
-            } catch (_) {}
+          try {
+            const d = await window.HumanityAPI.resolvePlay({
+              page: ctx.page || null,
+              embed: embed,
+              source: ctx.source || null,
+            });
+            if (d && d.stream) stream = d.stream;
+            else if (d && d.hls) stream = d.hls;
+            if (d && d.embed) embed = d.embed;
+            if (d && d.quality) quality = d.quality;
+          } catch (err) {
+            if (err && err.code === 401) {
+              showGate("Sign in required to play", true);
+              return;
+            }
+            showGate(String((err && err.message) || "Unable to resolve stream"));
+            return;
           }
 
           if (stream && /\.(mp4|webm|m3u8)(\?|#|$)/i.test(stream)) {
@@ -243,13 +285,10 @@
             mountIframe(embed);
             return;
           }
-          if (page) {
-            mountIframe(page);
-            return;
-          }
           showGate("No playable URL");
         }
 
+        document.title = title + " · Humanity";
         start();
       })();
     </script>

@@ -22,7 +22,7 @@ git worktree add -B gh-pages "$WT" origin/gh-pages 2>/dev/null \
 
 # 只同步站点静态文件
 find "$WT" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-cp -R index.html player.html styles.css js icons icon.svg favicon.png manifest.webmanifest .nojekyll "$WT/"
+cp -R index.html player.html styles.css js icons icon.svg favicon.png manifest.webmanifest robots.txt .nojekyll "$WT/"
 
 (
   cd "$WT"

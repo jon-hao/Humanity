@@ -33,6 +33,8 @@
   let hasMore = false;
   let lastQuery = "";
   let syncingUrl = false;
+  let sourceOptions = [{ value: "all", label: "All" }];
+  const PLAY_STORE_PREFIX = "humanity-play:";
 
   function escapeHtml(s) {
     return String(s || "")
@@ -90,14 +92,27 @@
     syncingUrl = false;
   }
 
+  function stashPlay(item) {
+    try {
+      sessionStorage.setItem(
+        PLAY_STORE_PREFIX + item.id,
+        JSON.stringify({
+          id: item.id,
+          page: item.url || null,
+          embed: item.embed || null,
+          source: item.source || null,
+          title: item.title || null,
+          poster: item.thumb || null,
+        })
+      );
+    } catch (_) {}
+  }
+
   function playerUrl(item) {
+    stashPlay(item);
     const u = new URL("player.html", location.href);
-    if (item.embed) u.searchParams.set("embed", item.embed);
-    if (item.url) u.searchParams.set("page", item.url);
-    if (item.stream) u.searchParams.set("stream", item.stream);
+    if (item.id) u.searchParams.set("id", item.id);
     if (item.title) u.searchParams.set("title", item.title);
-    if (item.thumb) u.searchParams.set("poster", item.thumb);
-    if (item.source) u.searchParams.set("source", item.source);
     return u.href;
   }
 
@@ -105,12 +120,13 @@
     const thumb = item.thumb || "";
     const preview = item.preview || thumb;
     const saved = opts && opts.saved;
+    const channel = item.sourceLabel || item.source || "";
     return `<article class="card" data-id="${escapeHtml(item.id)}">
       <button type="button" class="thumb-btn" data-open data-thumb="${escapeHtml(
         thumb
       )}" data-preview="${escapeHtml(preview)}">
         <img src="${escapeHtml(thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fallback />
-        <span class="src-tag">${escapeHtml(item.source || "")}</span>
+        <span class="src-tag">${escapeHtml(channel)}</span>
       </button>
       <div class="card-body">
         <h3 class="title">${escapeHtml(item.title || "")}</h3>
@@ -230,7 +246,7 @@
         items.length +
         " results · page " +
         page +
-        (d.errors ? " (some sources failed)" : "");
+        (d.errors ? " (partial)" : "");
       els.results.innerHTML = items.map((i) => cardHtml(i)).join("");
       wireCards(els.results, items, "search");
       updatePager();
@@ -332,6 +348,41 @@
     els.loginBtn.setAttribute("aria-busy", on ? "true" : "false");
   }
 
+  function onSourceChange() {
+    if (!lastQuery && !els.q.value.trim()) {
+      writeRoute("", 1, true);
+      return;
+    }
+    page = 1;
+    runSearch(null, { reset: true });
+  }
+
+  function mountSources(options, selected) {
+    sourceOptions =
+      Array.isArray(options) && options.length
+        ? options.map((o) => ({
+            value: String(o.value),
+            label: String(o.label || o.value),
+          }))
+        : [{ value: "all", label: "All" }];
+    const initial =
+      selected && sourceOptions.some((o) => o.value === selected)
+        ? selected
+        : sourceOptions[0].value;
+    if (!els.sourceSelect) return;
+    sourceCtl = window.HumanitySelect.mount(
+      els.sourceSelect,
+      sourceOptions,
+      initial,
+      onSourceChange
+    );
+  }
+
+  async function loadSources(preferred) {
+    const d = await window.HumanityAPI.meta();
+    mountSources((d && d.sources) || sourceOptions, preferred);
+  }
+
   async function onLogin(ev) {
     ev.preventDefault();
     if (loggingIn) return;
@@ -344,6 +395,7 @@
       );
       show("app");
       const route = readRoute();
+      await loadSources(route.source);
       if (route.q) {
         els.q.value = route.q;
         page = route.page;
@@ -360,13 +412,21 @@
 
   async function boot() {
     const route = readRoute();
-    if (route.source && sourceCtl) sourceCtl.setValue(route.source);
+    mountSources(sourceOptions, route.source || "all");
     if (window.HumanityAPI.getToken()) {
       show("app");
       const sess = await window.HumanityAPI.check();
       if (!sess) {
         show("login");
         return;
+      }
+      try {
+        await loadSources(route.source);
+      } catch (err) {
+        if (err && err.code === 401) {
+          show("login");
+          return;
+        }
       }
       if (route.q) {
         els.q.value = route.q;
@@ -377,26 +437,6 @@
     }
     show("login");
   }
-
-  sourceCtl = window.HumanitySelect.mount(
-    els.sourceSelect,
-    [
-      { value: "all", label: "All sources" },
-      { value: "pornhub", label: "Pornhub" },
-      { value: "xvideos", label: "XVideos" },
-      { value: "eporner", label: "Eporner" },
-    ],
-    "all",
-    () => {
-      if (!lastQuery && !els.q.value.trim()) {
-        writeRoute("", 1, true);
-        return;
-      }
-      // 切换源：重置到第 1 页并重新搜索
-      page = 1;
-      runSearch(null, { reset: true });
-    }
-  );
 
   els.loginForm.addEventListener("submit", onLogin);
   els.searchForm.addEventListener("submit", (e) =>

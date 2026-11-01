@@ -1,7 +1,7 @@
 {
   "name": "Humanity",
   "short_name": "Humanity",
-  "description": "Private video aggregator",
+  "description": "Private video library",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0c0f14",

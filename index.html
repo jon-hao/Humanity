@@ -6,7 +6,12 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no"
     />
-    <meta name="robots" content="noindex,nofollow" />
+    <meta
+      name="robots"
+      content="noindex,nofollow,noarchive,nosnippet,noimageindex"
+    />
+    <meta name="googlebot" content="noindex,nofollow,noarchive,nosnippet,noimageindex" />
+    <meta name="referrer" content="no-referrer" />
     <meta name="theme-color" content="#0c0f14" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -17,13 +22,13 @@
     <link rel="icon" href="./icons/favicon-16.png" type="image/png" sizes="16x16" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=7" />
+    <link rel="stylesheet" href="./styles.css?v=9" />
   </head>
   <body>
     <div id="loginView" class="view login-view is-active">
       <form id="loginForm" class="login-card" autocomplete="on">
         <h1 class="brand">Humanity</h1>
-        <p class="muted">Private aggregator — invite only</p>
+        <p class="muted">Private video library — invite only</p>
         <label>
           Email
           <input id="email" name="email" type="email" required autocomplete="username" />
@@ -93,10 +98,10 @@
       </div>
     </div>
 
-    <script src="./js/config.js?v=7"></script>
-    <script src="./js/api.js?v=7"></script>
-    <script src="./js/select.js?v=7"></script>
-    <script src="./js/preview.js?v=7"></script>
-    <script src="./js/app.js?v=7"></script>
+    <script src="./js/config.js?v=9"></script>
+    <script src="./js/api.js?v=9"></script>
+    <script src="./js/select.js?v=9"></script>
+    <script src="./js/preview.js?v=9"></script>
+    <script src="./js/app.js?v=9"></script>
   </body>
 </html>

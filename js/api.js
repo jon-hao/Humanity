@@ -139,6 +139,18 @@ window.HumanityAPI = (function () {
     );
   }
 
+  async function resolvePlay(opts) {
+    return hapi(
+      "hplay",
+      {
+        page: opts && opts.page,
+        embed: opts && opts.embed,
+        source: opts && opts.source,
+      },
+      { method: "POST", timeout: 40000 }
+    );
+  }
+
   async function listFavorites() {
     return hapi("hfav", { action: "list" }, { method: "POST" });
   }
@@ -160,6 +172,7 @@ window.HumanityAPI = (function () {
     check,
     logout,
     search,
+    resolvePlay,
     listFavorites,
     addFavorite,
     removeFavorite,

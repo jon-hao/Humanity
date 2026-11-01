@@ -139,7 +139,7 @@ window.HumanityAPI = (function () {
     return hapi(
       "hsearch",
       { q, source: source || "all", page: page || 1 },
-      { method: "POST", timeout: 55000 }
+      { method: "POST", timeout: 90000 }
     );
   }
 

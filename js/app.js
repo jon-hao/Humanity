@@ -386,7 +386,16 @@
       { value: "xvideos", label: "XVideos" },
       { value: "eporner", label: "Eporner" },
     ],
-    "all"
+    "all",
+    () => {
+      if (!lastQuery && !els.q.value.trim()) {
+        writeRoute("", 1, true);
+        return;
+      }
+      // 切换源：重置到第 1 页并重新搜索
+      page = 1;
+      runSearch(null, { reset: true });
+    }
   );
 
   els.loginForm.addEventListener("submit", onLogin);

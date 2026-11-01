@@ -7,6 +7,10 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no"
     />
     <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#0c0f14" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="./icons/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <title>Player · Humanity</title>
     <style>
       :root {
@@ -68,32 +72,21 @@
         font-size: 0.9rem;
         max-width: 36rem;
       }
-      .gate .btn {
-        display: inline-flex;
-        justify-content: center;
-        align-items: center;
-        border: 0;
-        border-radius: 8px;
-        padding: 12px 18px;
-        background: linear-gradient(135deg, #c45c26, #a34820);
-        color: #fff;
-        font-weight: 700;
-        text-decoration: none;
-        cursor: pointer;
-        font: inherit;
-      }
     </style>
+    <script src="./js/config.js?v=6"></script>
+    <script src="./js/api.js?v=6"></script>
   </head>
   <body>
     <div class="stage" id="stage"></div>
     <script>
       (function () {
         const p = new URLSearchParams(location.search);
-        const embed = p.get("embed");
+        const embedIn = p.get("embed");
         const page = p.get("page");
-        const stream = p.get("stream");
+        const streamIn = p.get("stream");
         const title = p.get("title") || "Video";
         const poster = p.get("poster") || "";
+        const source = p.get("source") || "";
         document.title = title + " · Humanity";
         const stage = document.getElementById("stage");
 
@@ -107,7 +100,7 @@
             "</p></div>";
         }
 
-        function mountVideo(src) {
+        function mountVideo(src, fallbackEmbed) {
           stage.classList.add("has-media");
           stage.innerHTML = "";
           const video = document.createElement("video");
@@ -117,15 +110,21 @@
           video.setAttribute("playsinline", "");
           if (poster) video.poster = poster;
           video.src = src;
+          let fellBack = false;
           video.addEventListener("error", function () {
-            // 直链失败则退回 iframe，绝不跳出本站
-            if (embed) mountIframe(embed);
+            if (fellBack) return;
+            fellBack = true;
+            if (fallbackEmbed) mountIframe(fallbackEmbed);
             else showGate("Video stream unavailable");
           });
           stage.appendChild(video);
         }
 
         function mountIframe(src) {
+          if (!src) {
+            showGate("No playable URL");
+            return;
+          }
           stage.classList.add("has-media");
           stage.innerHTML = "";
           const iframe = document.createElement("iframe");
@@ -134,27 +133,58 @@
             "autoplay; fullscreen; picture-in-picture; encrypted-media";
           iframe.allowFullscreen = true;
           iframe.referrerPolicy = "no-referrer";
-          iframe.addEventListener("error", function () {
-            showGate("Embedded player failed to load");
-          });
           stage.appendChild(iframe);
         }
 
-        // 优先原生 video；否则源站 embed iframe。绝不 location 跳到外站。
-        if (stream && /\.(mp4|webm|m3u8)(\?|#|$)/i.test(stream)) {
-          mountVideo(stream);
-          return;
+        function fixEmbed(url, src, pageUrl) {
+          let e = url || "";
+          // 纠正旧链接：XV 数字 embedframe → 用页面 encoded id
+          if (/xvideos\.com\/embedframe\/\d+/i.test(e) && pageUrl) {
+            const m = String(pageUrl).match(/\/video\.([a-z0-9]+)\//i);
+            if (m) e = "https://www.xvideos.com/embedframe/" + m[1];
+          }
+          // PH 数字 embed → 从 page 取 viewkey
+          if (/pornhub\.com\/embed\/\d+$/i.test(e) && pageUrl) {
+            const m = String(pageUrl).match(/viewkey=([a-zA-Z0-9]+)/);
+            if (m) e = "https://www.pornhub.com/embed/" + m[1];
+          }
+          return e;
         }
-        if (embed) {
-          mountIframe(embed);
-          return;
+
+        async function start() {
+          showGate("Loading…");
+          let embed = fixEmbed(embedIn, source, page);
+          let stream = streamIn;
+
+          // 优先向 HApi 解析直链；失败仍用 embed iframe，绝不跳出本站
+          if (window.HumanityAPI && window.HumanityAPI.getToken && window.HumanityAPI.getToken()) {
+            try {
+              const d = await window.HumanityAPI.resolvePlay({
+                page: page,
+                embed: embed,
+                source: source,
+              });
+              if (d && d.stream) stream = d.stream;
+              if (d && d.embed) embed = d.embed;
+            } catch (_) {}
+          }
+
+          if (stream && /\.(mp4|webm|m3u8)(\?|#|$)/i.test(stream)) {
+            mountVideo(stream, embed);
+            return;
+          }
+          if (embed) {
+            mountIframe(embed);
+            return;
+          }
+          if (page) {
+            mountIframe(page);
+            return;
+          }
+          showGate("No playable URL");
         }
-        // 没有专用 embed 时，用源页 URL 仍放进 iframe（可能被拒嵌，但留在本页）
-        if (page) {
-          mountIframe(page);
-          return;
-        }
-        showGate("No playable URL");
+
+        start();
       })();
     </script>
   </body>

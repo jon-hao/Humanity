@@ -32,6 +32,7 @@
   let page = 1;
   let hasMore = false;
   let lastQuery = "";
+  let syncingUrl = false;
 
   function escapeHtml(s) {
     return String(s || "")
@@ -59,6 +60,34 @@
       el.classList.toggle("is-active", on);
       el.setAttribute("aria-hidden", on ? "false" : "true");
     });
+  }
+
+  function readRoute() {
+    const sp = new URLSearchParams(location.search);
+    const q = (sp.get("query") || sp.get("q") || "").trim();
+    const pg = Math.max(1, Number(sp.get("page")) || 1);
+    const source = (sp.get("source") || "").trim().toLowerCase();
+    return { q, page: pg, source };
+  }
+
+  function writeRoute(q, pg, replace) {
+    const sp = new URLSearchParams();
+    const query = String(q || "").trim();
+    const pageNo = Math.max(1, Number(pg) || 1);
+    if (query) {
+      sp.set("query", query);
+      sp.set("page", String(pageNo));
+    }
+    const src = sourceValue();
+    if (src && src !== "all") sp.set("source", src);
+    const qs = sp.toString();
+    const next = location.pathname + (qs ? "?" + qs : "") + location.hash;
+    const cur = location.pathname + location.search + location.hash;
+    if (next === cur) return;
+    syncingUrl = true;
+    if (replace) history.replaceState(null, "", next);
+    else history.pushState(null, "", next);
+    syncingUrl = false;
   }
 
   function playerUrl(item) {
@@ -99,7 +128,6 @@
       img.addEventListener("error", function onErr() {
         img.removeEventListener("error", onErr);
         const raw = img.getAttribute("src") || "";
-        // 再试一次：去掉查询串 / 把 THUMBNUM 换成帧
         if (/THUMBNUM/i.test(raw)) {
           img.src = raw.replace(/THUMBNUM/gi, "9");
           return;
@@ -170,8 +198,10 @@
     const q = els.q.value.trim();
     if (!q) return;
     const reset = !opts || opts.reset !== false;
+    const fromUrl = opts && opts.fromUrl;
     if (reset) page = 1;
     lastQuery = q;
+    if (!fromUrl) writeRoute(q, page, !!opts && opts.replaceUrl);
     els.status.textContent = "Searching…";
     els.results.innerHTML = '<div class="skel"></div>'.repeat(8);
     updatePager();
@@ -313,7 +343,14 @@
         els.password.value
       );
       show("app");
-      els.q.focus();
+      const route = readRoute();
+      if (route.q) {
+        els.q.value = route.q;
+        page = route.page;
+        await runSearch(null, { reset: false, fromUrl: true, replaceUrl: true });
+      } else {
+        els.q.focus();
+      }
     } catch (err) {
       els.loginErr.textContent = String(err.message || err);
     } finally {
@@ -322,10 +359,20 @@
   }
 
   async function boot() {
+    const route = readRoute();
+    if (route.source && sourceCtl) sourceCtl.setValue(route.source);
     if (window.HumanityAPI.getToken()) {
       show("app");
       const sess = await window.HumanityAPI.check();
-      if (!sess) show("login");
+      if (!sess) {
+        show("login");
+        return;
+      }
+      if (route.q) {
+        els.q.value = route.q;
+        page = route.page;
+        await runSearch(null, { reset: false, fromUrl: true, replaceUrl: true });
+      }
       return;
     }
     show("login");
@@ -343,7 +390,9 @@
   );
 
   els.loginForm.addEventListener("submit", onLogin);
-  els.searchForm.addEventListener("submit", (e) => runSearch(e, { reset: true }));
+  els.searchForm.addEventListener("submit", (e) =>
+    runSearch(e, { reset: true })
+  );
   els.favBtn.addEventListener("click", openFavorites);
   els.backBtn.addEventListener("click", () => show("app"));
   els.logoutBtn.addEventListener("click", async () => {
@@ -366,13 +415,33 @@
     });
   }
 
+  window.addEventListener("popstate", () => {
+    if (syncingUrl) return;
+    if (!window.HumanityAPI.getToken()) return;
+    const route = readRoute();
+    if (route.source && sourceCtl) sourceCtl.setValue(route.source);
+    if (!route.q) {
+      lastQuery = "";
+      page = 1;
+      hasMore = false;
+      els.q.value = "";
+      els.results.innerHTML = "";
+      els.status.textContent = "";
+      updatePager();
+      return;
+    }
+    els.q.value = route.q;
+    page = route.page;
+    runSearch(null, { reset: false, fromUrl: true });
+  });
+
   els.q.addEventListener("focus", () => {
     els.q.setAttribute("readonly", "readonly");
     requestAnimationFrame(() => els.q.removeAttribute("readonly"));
   });
 
   wirePullToRefresh(els.appScroll, els.ptrApp, async () => {
-    if (els.q.value.trim()) await runSearch(null, { reset: false });
+    if (els.q.value.trim()) await runSearch(null, { reset: false, replaceUrl: true });
   });
   wirePullToRefresh(els.favScroll, els.ptrFav, async () => {
     await openFavorites();

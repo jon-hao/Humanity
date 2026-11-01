@@ -1,6 +1,27 @@
-/** PC 悬停 / 移动端长按：静态封面 ↔ 预览动图 */
+/** PC 悬停 / 移动端长按：静态封面 ↔ 循环预览（img 动图或 video） */
 window.HumanityPreview = (function () {
   const LONG_MS = 380;
+
+  function isVideoUrl(u) {
+    return /\.(webm|mp4)(\?|#|$)/i.test(String(u || ""));
+  }
+
+  function ensureVideo(el) {
+    let v = el.querySelector("video.preview-video");
+    if (v) return v;
+    v = document.createElement("video");
+    v.className = "preview-video";
+    v.muted = true;
+    v.loop = true;
+    v.playsInline = true;
+    v.setAttribute("muted", "");
+    v.setAttribute("playsinline", "");
+    v.setAttribute("webkit-playsinline", "");
+    v.preload = "auto";
+    v.setAttribute("aria-hidden", "true");
+    el.appendChild(v);
+    return v;
+  }
 
   function bind(root) {
     if (!root) return;
@@ -13,12 +34,25 @@ window.HumanityPreview = (function () {
       const preview = el.getAttribute("data-preview") || thumb;
       let timer = null;
       let previewing = false;
+      let video = null;
 
       function start() {
         if (previewing || !preview || preview === thumb) return;
         previewing = true;
-        img.src = preview;
+        if (isVideoUrl(preview)) {
+          video = ensureVideo(el);
+          el.classList.add("is-previewing");
+          if (video.src !== preview) video.src = preview;
+          video.currentTime = 0;
+          const p = video.play();
+          if (p && typeof p.catch === "function") p.catch(() => {});
+        } else {
+          // 强制重新加载，避免动图只播一帧后卡在缓存末帧
+          img.src = "";
+          img.src = preview + (preview.includes("?") ? "&" : "?") + "_pv=" + Date.now();
+        }
       }
+
       function stop() {
         if (timer) {
           clearTimeout(timer);
@@ -26,6 +60,14 @@ window.HumanityPreview = (function () {
         }
         if (!previewing) return;
         previewing = false;
+        el.classList.remove("is-previewing");
+        if (video) {
+          try {
+            video.pause();
+            video.removeAttribute("src");
+            video.load();
+          } catch (_) {}
+        }
         img.src = thumb;
       }
 

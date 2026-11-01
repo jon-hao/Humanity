@@ -397,6 +397,60 @@ select {
   display: block;
 }
 
+.thumb-btn img.thumb-broken {
+  display: none;
+}
+
+.thumb-btn.no-thumb {
+  background:
+    linear-gradient(135deg, #1a222e, #0a0d12 60%),
+    #000;
+}
+
+.thumb-btn .preview-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+  background: #000;
+  pointer-events: none;
+}
+
+.thumb-btn.is-previewing .preview-video {
+  display: block;
+}
+
+.thumb-btn.is-previewing img {
+  opacity: 0;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px 28px;
+}
+
+.pager[hidden] {
+  display: none !important;
+}
+
+.page-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-width: 5.5em;
+  text-align: center;
+}
+
+.pager .btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .src-tag {
   position: absolute;
   left: 8px;

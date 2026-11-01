@@ -68,11 +68,6 @@
         font-size: 0.9rem;
         max-width: 36rem;
       }
-      .gate a,
-      .gate button {
-        font: inherit;
-        cursor: pointer;
-      }
       .gate .btn {
         display: inline-flex;
         justify-content: center;
@@ -84,12 +79,8 @@
         color: #fff;
         font-weight: 700;
         text-decoration: none;
-      }
-      .gate .link {
-        color: #9ad;
-        background: none;
-        border: 0;
-        text-decoration: underline;
+        cursor: pointer;
+        font: inherit;
       }
     </style>
   </head>
@@ -100,66 +91,70 @@
         const p = new URLSearchParams(location.search);
         const embed = p.get("embed");
         const page = p.get("page");
+        const stream = p.get("stream");
         const title = p.get("title") || "Video";
-        const source = p.get("source") || "";
-        const target = page || embed;
+        const poster = p.get("poster") || "";
         document.title = title + " · Humanity";
         const stage = document.getElementById("stage");
 
-        function openTop(url) {
-          // 多数成人站禁止 iframe（X-Frame-Options / 拒连）。顶层跳转才能播。
-          location.replace(url);
+        function showGate(msg) {
+          stage.classList.remove("has-media");
+          stage.innerHTML =
+            '<div class="gate"><h1>' +
+            String(title).replace(/</g, "&lt;") +
+            "</h1><p>" +
+            String(msg || "Unable to play").replace(/</g, "&lt;") +
+            "</p></div>";
         }
 
-        if (!target) {
-          stage.innerHTML =
-            '<div class="gate"><h1>No playable URL</h1></div>';
-          return;
-        }
-
-        // 已知会拒嵌的源：直接顶层打开，避免空白拒连页
-        if (/eporner|pornhub|xvideos/i.test(source) || /eporner|pornhub|xvideos/i.test(target)) {
-          stage.innerHTML =
-            '<div class="gate">' +
-            "<h1>" +
-            title.replace(/</g, "&lt;") +
-            "</h1>" +
-            "<p>This source blocks embedded players. Opening the original page…</p>" +
-            '<a class="btn" id="go" href="' +
-            target.replace(/"/g, "&quot;") +
-            '">Continue</a>' +
-            "</div>";
-          const go = document.getElementById("go");
-          // 立刻跳转；保留按钮兜底
-          setTimeout(function () {
-            openTop(target);
-          }, 200);
-          go.addEventListener("click", function (e) {
-            e.preventDefault();
-            openTop(target);
+        function mountVideo(src) {
+          stage.classList.add("has-media");
+          stage.innerHTML = "";
+          const video = document.createElement("video");
+          video.controls = true;
+          video.autoplay = true;
+          video.playsInline = true;
+          video.setAttribute("playsinline", "");
+          if (poster) video.poster = poster;
+          video.src = src;
+          video.addEventListener("error", function () {
+            // 直链失败则退回 iframe，绝不跳出本站
+            if (embed) mountIframe(embed);
+            else showGate("Video stream unavailable");
           });
-          return;
+          stage.appendChild(video);
         }
 
-        // 其他源仍尝试 iframe
-        stage.classList.add("has-media");
-        const iframe = document.createElement("iframe");
-        iframe.src = embed || page;
-        iframe.allow =
-          "autoplay; fullscreen; picture-in-picture; encrypted-media";
-        iframe.allowFullscreen = true;
-        iframe.referrerPolicy = "no-referrer";
-        let settled = false;
-        const fallback = setTimeout(function () {
-          if (settled) return;
-          settled = true;
-          openTop(target);
-        }, 2500);
-        iframe.addEventListener("load", function () {
-          settled = true;
-          clearTimeout(fallback);
-        });
-        stage.appendChild(iframe);
+        function mountIframe(src) {
+          stage.classList.add("has-media");
+          stage.innerHTML = "";
+          const iframe = document.createElement("iframe");
+          iframe.src = src;
+          iframe.allow =
+            "autoplay; fullscreen; picture-in-picture; encrypted-media";
+          iframe.allowFullscreen = true;
+          iframe.referrerPolicy = "no-referrer";
+          iframe.addEventListener("error", function () {
+            showGate("Embedded player failed to load");
+          });
+          stage.appendChild(iframe);
+        }
+
+        // 优先原生 video；否则源站 embed iframe。绝不 location 跳到外站。
+        if (stream && /\.(mp4|webm|m3u8)(\?|#|$)/i.test(stream)) {
+          mountVideo(stream);
+          return;
+        }
+        if (embed) {
+          mountIframe(embed);
+          return;
+        }
+        // 没有专用 embed 时，用源页 URL 仍放进 iframe（可能被拒嵌，但留在本页）
+        if (page) {
+          mountIframe(page);
+          return;
+        }
+        showGate("No playable URL");
       })();
     </script>
   </body>

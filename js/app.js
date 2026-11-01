@@ -13,6 +13,10 @@
     searchForm: document.getElementById("searchForm"),
     results: document.getElementById("results"),
     status: document.getElementById("status"),
+    pager: document.getElementById("pager"),
+    pagePrev: document.getElementById("pagePrev"),
+    pageNext: document.getElementById("pageNext"),
+    pageLabel: document.getElementById("pageLabel"),
     favBtn: document.getElementById("favBtn"),
     backBtn: document.getElementById("backBtn"),
     favList: document.getElementById("favList"),
@@ -25,6 +29,9 @@
 
   let sourceCtl = null;
   let loggingIn = false;
+  let page = 1;
+  let hasMore = false;
+  let lastQuery = "";
 
   function escapeHtml(s) {
     return String(s || "")
@@ -58,6 +65,7 @@
     const u = new URL("player.html", location.href);
     if (item.embed) u.searchParams.set("embed", item.embed);
     if (item.url) u.searchParams.set("page", item.url);
+    if (item.stream) u.searchParams.set("stream", item.stream);
     if (item.title) u.searchParams.set("title", item.title);
     if (item.thumb) u.searchParams.set("poster", item.thumb);
     if (item.source) u.searchParams.set("source", item.source);
@@ -72,19 +80,49 @@
       <button type="button" class="thumb-btn" data-open data-thumb="${escapeHtml(
         thumb
       )}" data-preview="${escapeHtml(preview)}">
-        <img src="${escapeHtml(thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" />
+        <img src="${escapeHtml(thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fallback />
         <span class="src-tag">${escapeHtml(item.source || "")}</span>
       </button>
       <div class="card-body">
         <h3 class="title">${escapeHtml(item.title || "")}</h3>
         <div class="card-actions">
-          <button type="button" class="btn ghost" data-open>Play</button>
           <button type="button" class="btn ${saved ? "danger" : ""}" data-fav>${
             saved ? "Unsave" : "Save"
           }</button>
         </div>
       </div>
     </article>`;
+  }
+
+  function wireThumbFallback(root) {
+    root.querySelectorAll("img[data-fallback]").forEach((img) => {
+      img.addEventListener("error", function onErr() {
+        img.removeEventListener("error", onErr);
+        const raw = img.getAttribute("src") || "";
+        // 再试一次：去掉查询串 / 把 THUMBNUM 换成帧
+        if (/THUMBNUM/i.test(raw)) {
+          img.src = raw.replace(/THUMBNUM/gi, "9");
+          return;
+        }
+        if (raw.includes("?")) {
+          img.src = raw.split("?")[0];
+          return;
+        }
+        img.removeAttribute("src");
+        img.classList.add("thumb-broken");
+        const btn = img.closest(".thumb-btn");
+        if (btn) btn.classList.add("no-thumb");
+      });
+    });
+  }
+
+  function updatePager() {
+    if (!els.pager) return;
+    const showPager = !!lastQuery && (page > 1 || hasMore);
+    els.pager.hidden = !showPager;
+    if (els.pageLabel) els.pageLabel.textContent = "Page " + page;
+    if (els.pagePrev) els.pagePrev.disabled = page <= 1;
+    if (els.pageNext) els.pageNext.disabled = !hasMore;
   }
 
   function wireCards(root, items, mode) {
@@ -123,18 +161,24 @@
         });
       }
     });
+    wireThumbFallback(root);
     window.HumanityPreview.bind(root);
   }
 
-  async function runSearch(ev) {
+  async function runSearch(ev, opts) {
     if (ev) ev.preventDefault();
     const q = els.q.value.trim();
     if (!q) return;
+    const reset = !opts || opts.reset !== false;
+    if (reset) page = 1;
+    lastQuery = q;
     els.status.textContent = "Searching…";
     els.results.innerHTML = '<div class="skel"></div>'.repeat(8);
+    updatePager();
     try {
-      const d = await window.HumanityAPI.search(q, sourceValue(), 1);
+      const d = await window.HumanityAPI.search(q, sourceValue(), page);
       const items = (d && d.items) || [];
+      hasMore = !!(d && d.hasMore);
       if (!items.length) {
         const errBits =
           d && d.errors
@@ -148,19 +192,25 @@
             ? "<br/><span class='tiny'>" + escapeHtml(errBits) + "</span>"
             : "") +
           "</div>";
-        els.status.textContent = "";
+        els.status.textContent = page > 1 ? "Page " + page + " empty" : "";
+        updatePager();
         return;
       }
       els.status.textContent =
         items.length +
-        " results" +
+        " results · page " +
+        page +
         (d.errors ? " (some sources failed)" : "");
       els.results.innerHTML = items.map((i) => cardHtml(i)).join("");
       wireCards(els.results, items, "search");
+      updatePager();
+      if (els.appScroll) els.appScroll.scrollTop = 0;
     } catch (err) {
       els.results.innerHTML =
         '<div class="empty">' + escapeHtml(err.message || err) + "</div>";
       els.status.textContent = "";
+      hasMore = false;
+      updatePager();
       if (err.code === 401) boot();
     }
   }
@@ -272,7 +322,6 @@
   }
 
   async function boot() {
-    // 有本地 token 先乐观进主页，再后台校验
     if (window.HumanityAPI.getToken()) {
       show("app");
       const sess = await window.HumanityAPI.check();
@@ -294,7 +343,7 @@
   );
 
   els.loginForm.addEventListener("submit", onLogin);
-  els.searchForm.addEventListener("submit", runSearch);
+  els.searchForm.addEventListener("submit", (e) => runSearch(e, { reset: true }));
   els.favBtn.addEventListener("click", openFavorites);
   els.backBtn.addEventListener("click", () => show("app"));
   els.logoutBtn.addEventListener("click", async () => {
@@ -302,18 +351,33 @@
     show("login");
   });
 
-  // 尽量抑制浏览器搜索历史下拉
+  if (els.pagePrev) {
+    els.pagePrev.addEventListener("click", () => {
+      if (page <= 1) return;
+      page -= 1;
+      runSearch(null, { reset: false });
+    });
+  }
+  if (els.pageNext) {
+    els.pageNext.addEventListener("click", () => {
+      if (!hasMore) return;
+      page += 1;
+      runSearch(null, { reset: false });
+    });
+  }
+
   els.q.addEventListener("focus", () => {
     els.q.setAttribute("readonly", "readonly");
     requestAnimationFrame(() => els.q.removeAttribute("readonly"));
   });
 
   wirePullToRefresh(els.appScroll, els.ptrApp, async () => {
-    if (els.q.value.trim()) await runSearch();
+    if (els.q.value.trim()) await runSearch(null, { reset: false });
   });
   wirePullToRefresh(els.favScroll, els.ptrFav, async () => {
     await openFavorites();
   });
 
+  updatePager();
   boot();
 })();

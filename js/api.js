@@ -131,6 +131,10 @@ window.HumanityAPI = (function () {
     clearSession();
   }
 
+  async function meta() {
+    return hapi("hmeta", {}, { method: "POST", timeout: 20000 });
+  }
+
   async function search(q, source, page) {
     return hapi(
       "hsearch",
@@ -171,6 +175,7 @@ window.HumanityAPI = (function () {
     login,
     check,
     logout,
+    meta,
     search,
     resolvePlay,
     listFavorites,

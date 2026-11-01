@@ -17,7 +17,7 @@
     pagePrev: document.getElementById("pagePrev"),
     pageNext: document.getElementById("pageNext"),
     pageLabel: document.getElementById("pageLabel"),
-    favBtn: document.getElementById("favBtn"),
+    profileBtn: document.getElementById("profileBtn"),
     backBtn: document.getElementById("backBtn"),
     favList: document.getElementById("favList"),
     logoutBtn: document.getElementById("logoutBtn"),
@@ -97,9 +97,9 @@
       node.textContent = window.ht(node.getAttribute("data-i18n"));
     });
     if (els.q) els.q.placeholder = window.ht("search");
-    if (els.favBtn) {
-      els.favBtn.title = window.ht("favorites");
-      els.favBtn.setAttribute("aria-label", window.ht("favorites"));
+    if (els.profileBtn) {
+      els.profileBtn.title = window.ht("profile");
+      els.profileBtn.setAttribute("aria-label", window.ht("profile"));
     }
     if (els.backBtn) {
       els.backBtn.title = window.ht("back");
@@ -625,7 +625,9 @@
   els.searchForm.addEventListener("submit", (e) =>
     runSearch(e, { reset: true })
   );
-  els.favBtn.addEventListener("click", openFavorites);
+  if (els.profileBtn) {
+    els.profileBtn.addEventListener("click", openFavorites);
+  }
   els.backBtn.addEventListener("click", () => show("app"));
   if (els.logoutBtn) {
     els.logoutBtn.addEventListener("click", async () => {

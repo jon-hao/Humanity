@@ -384,9 +384,9 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=33"></script>
-    <script src="./js/api.js?v=33"></script>
-    <script src="./js/preview.js?v=33"></script>
+    <script src="./js/config.js?v=34"></script>
+    <script src="./js/api.js?v=34"></script>
+    <script src="./js/preview.js?v=34"></script>
   </head>
   <body>
     <div class="player-root">
@@ -645,8 +645,9 @@
         }
 
         function sourceEmbedUrl(explicit) {
+          // MissAV 禁止被嵌，不走 iframe
+          if (isMissavCtx()) return null;
           if (explicit) return explicit;
-          if (isMissavCtx()) return missavPlayerUrl(null);
           return null;
         }
 
@@ -659,26 +660,41 @@
           return true;
         }
 
-        function showMissavFallback(msg) {
-          const page = missavPlayerUrl(null);
-          if (page) {
-            mountIframe(page, { sourceSite: true });
-            return;
-          }
+        function openMissavSourcePlayer(explicit, msg) {
+          const page = missavPlayerUrl(explicit);
           showChrome(true);
           clearMedia();
+          syncForcedLandscapeSize();
           const gate = document.createElement("div");
           gate.className = "gate";
           gate.innerHTML =
             "<h1>" +
             esc(title) +
             "</h1><p>" +
-            esc(msg || "Stream unavailable") +
+            esc(
+              msg ||
+                "MissAV blocks in-app embedding. Open their player to watch."
+            ) +
             "</p>" +
+            (page
+              ? '<a class="gate-close" data-missav-open href="' +
+                esc(page) +
+                '" target="_blank" rel="noopener">Open MissAV player</a>'
+              : "") +
             '<button type="button" class="gate-close" data-gate-close>Close</button>';
           stage.appendChild(gate);
+          const openBtn = gate.querySelector("[data-missav-open]");
+          if (openBtn) {
+            openBtn.addEventListener("click", function () {
+              openExternalPage(page);
+            });
+          }
           const close = gate.querySelector("[data-gate-close]");
           if (close) close.addEventListener("click", closePlayer);
+        }
+
+        function showMissavFallback(msg) {
+          openMissavSourcePlayer(null, msg);
         }
 
         function mountVideo(src, fallbackEmbed, opts) {
@@ -690,8 +706,8 @@
               mountVideo(altStream, fallbackEmbed, null);
               return;
             }
-            if (fallback) mountIframe(fallback, { sourceSite: isMissavCtx() });
-            else if (isMissavCtx()) showMissavFallback("Video not supported");
+            if (isMissavCtx()) showMissavFallback("Video not supported");
+            else if (fallback) mountIframe(fallback);
             else showGate("Video not supported");
             return;
           }
@@ -715,10 +731,9 @@
               return;
             }
             fellBack = true;
-            if (fallback) mountIframe(fallback, { sourceSite: isMissavCtx() });
-            else if (isMissavCtx()) {
-              showMissavFallback("Video stream unavailable");
-            } else showGate("Video stream unavailable");
+            if (isMissavCtx()) showMissavFallback("Video stream unavailable");
+            else if (fallback) mountIframe(fallback);
+            else showGate("Video stream unavailable");
           };
           video.addEventListener("error", onFail);
           const stallTimer = setTimeout(function () {
@@ -1221,13 +1236,10 @@
           const rawPlayable = !forceEmbed && isPlayableMediaUrl(stream);
           const missav = isMissavCtx() || (playMeta && playMeta.proxy);
 
-          // MissAV：直接用源站自己的播放器（页面或解析出的 embed）
+          // MissAV 禁止 iframe 内嵌 → 引导打开源站播放器（避免白屏）
           if (missav) {
-            const player = missavPlayerUrl(embed);
-            if (player) {
-              mountIframe(player, { sourceSite: true });
-              return;
-            }
+            openMissavSourcePlayer(embed);
+            return;
           }
 
           const fallback = sourceEmbedUrl(embed);
@@ -1242,7 +1254,7 @@
             return;
           }
           if (fallback) {
-            mountIframe(fallback, { sourceSite: missav });
+            mountIframe(fallback);
             return;
           }
           showGate("No playable URL");

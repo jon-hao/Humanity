@@ -384,9 +384,9 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=32"></script>
-    <script src="./js/api.js?v=32"></script>
-    <script src="./js/preview.js?v=32"></script>
+    <script src="./js/config.js?v=33"></script>
+    <script src="./js/api.js?v=33"></script>
+    <script src="./js/preview.js?v=33"></script>
   </head>
   <body>
     <div class="player-root">
@@ -638,10 +638,15 @@
           }
         }
 
-        function sourceEmbedUrl(explicit) {
-          // 只返回可 iframe 的 embed；MissAV 源站页有 XFO，不能当 iframe
+        function missavPlayerUrl(explicit) {
           if (explicit) return explicit;
-          if (isMissavCtx()) return null;
+          if (playCtx && playCtx.page) return playCtx.page;
+          return null;
+        }
+
+        function sourceEmbedUrl(explicit) {
+          if (explicit) return explicit;
+          if (isMissavCtx()) return missavPlayerUrl(null);
           return null;
         }
 
@@ -655,7 +660,11 @@
         }
 
         function showMissavFallback(msg) {
-          const page = (playCtx && playCtx.page) || "";
+          const page = missavPlayerUrl(null);
+          if (page) {
+            mountIframe(page, { sourceSite: true });
+            return;
+          }
           showChrome(true);
           clearMedia();
           const gate = document.createElement("div");
@@ -666,11 +675,6 @@
             "</h1><p>" +
             esc(msg || "Stream unavailable") +
             "</p>" +
-            (page
-              ? '<p><a href="' +
-                esc(page) +
-                '" target="_blank" rel="noopener">Open source player</a></p>'
-              : "") +
             '<button type="button" class="gate-close" data-gate-close>Close</button>';
           stage.appendChild(gate);
           const close = gate.querySelector("[data-gate-close]");
@@ -686,7 +690,7 @@
               mountVideo(altStream, fallbackEmbed, null);
               return;
             }
-            if (fallback) mountIframe(fallback);
+            if (fallback) mountIframe(fallback, { sourceSite: isMissavCtx() });
             else if (isMissavCtx()) showMissavFallback("Video not supported");
             else showGate("Video not supported");
             return;
@@ -711,7 +715,7 @@
               return;
             }
             fellBack = true;
-            if (fallback) mountIframe(fallback);
+            if (fallback) mountIframe(fallback, { sourceSite: isMissavCtx() });
             else if (isMissavCtx()) {
               showMissavFallback("Video stream unavailable");
             } else showGate("Video stream unavailable");
@@ -759,7 +763,7 @@
           }
         }
 
-        function mountIframe(src) {
+        function mountIframe(src, opts) {
           destroyHls();
           if (!src) {
             showGate("No playable URL");
@@ -768,17 +772,23 @@
           clearMedia();
           showChrome(true);
           syncForcedLandscapeSize();
+          const sourceSite = !!(opts && opts.sourceSite);
           const iframe = document.createElement("iframe");
           iframe.src = src;
           iframe.allow =
             "autoplay; fullscreen; picture-in-picture; encrypted-media";
           iframe.allowFullscreen = true;
-          iframe.referrerPolicy = "no-referrer";
-          // 禁弹窗，减少广告外链；不盖蒙层，避免挡住源站播放按钮
-          iframe.setAttribute(
-            "sandbox",
-            "allow-scripts allow-same-origin allow-forms allow-presentation allow-downloads"
-          );
+          // 源站播放器需要正常 referrer / 完整脚本环境
+          iframe.referrerPolicy = sourceSite
+            ? "no-referrer-when-downgrade"
+            : "no-referrer";
+          if (!sourceSite) {
+            // 非源站 embed：禁弹窗减广告；MissAV 等源站页不加 sandbox
+            iframe.setAttribute(
+              "sandbox",
+              "allow-scripts allow-same-origin allow-forms allow-presentation allow-downloads"
+            );
+          }
           stage.appendChild(iframe);
         }
 
@@ -1210,21 +1220,19 @@
 
           const rawPlayable = !forceEmbed && isPlayableMediaUrl(stream);
           const missav = isMissavCtx() || (playMeta && playMeta.proxy);
-          const fallback = sourceEmbedUrl(embed);
 
-          if (rawPlayable && stream && canPlayMediaSrc(stream)) {
-            // MissAV：先走 hmedia 同源代理，失败再试直连；源站页无法 iframe
-            if (
-              missav &&
-              window.HumanityAPI.mediaUrl &&
-              !/[?&]flow=hmedia\b/i.test(stream)
-            ) {
-              const proxied = window.HumanityAPI.mediaUrl(stream);
-              mountVideo(proxied, fallback, { altStream: stream });
+          // MissAV：直接用源站自己的播放器（页面或解析出的 embed）
+          if (missav) {
+            const player = missavPlayerUrl(embed);
+            if (player) {
+              mountIframe(player, { sourceSite: true });
               return;
             }
+          }
+
+          const fallback = sourceEmbedUrl(embed);
+          if (rawPlayable && stream && canPlayMediaSrc(stream)) {
             if (
-              !missav &&
               window.HumanityAPI.needsMediaProxy &&
               window.HumanityAPI.needsMediaProxy(stream, playMeta)
             ) {
@@ -1234,11 +1242,10 @@
             return;
           }
           if (fallback) {
-            mountIframe(fallback);
+            mountIframe(fallback, { sourceSite: missav });
             return;
           }
-          if (missav) showMissavFallback("No playable URL");
-          else showGate("No playable URL");
+          showGate("No playable URL");
         }
 
         document.title = title + " · Humanity";

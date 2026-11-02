@@ -292,6 +292,14 @@
         left: parseFloat(cs.paddingLeft) || 0,
       };
       probe.remove();
+      // 移动端状态栏高度兜底：env 偶发为 0 时按钮仍会被裁切
+      const narrow = Math.min(window.innerWidth, window.innerHeight) <= 900;
+      if (narrow) {
+        insets.top = Math.max(insets.top, 54);
+        insets.bottom = Math.max(insets.bottom, 24);
+        insets.left = Math.max(insets.left, 16);
+        insets.right = Math.max(insets.right, 16);
+      }
       localStorage.setItem("humanity-safe-area", JSON.stringify(insets));
       return insets;
     } catch (_) {
@@ -301,9 +309,15 @@
 
   function playerUrl(item) {
     stashPlay(item);
-    captureSafeArea();
+    const sa = captureSafeArea() || { top: 54, right: 16, bottom: 24, left: 16 };
     const u = new URL("player.html", location.href);
-    u.searchParams.set("v", "23");
+    u.searchParams.set("v", "24");
+    u.searchParams.set(
+      "sa",
+      [sa.top, sa.right, sa.bottom, sa.left]
+        .map((n) => String(Math.round(Number(n) || 0)))
+        .join(",")
+    );
     if (item.id) u.searchParams.set("id", item.id);
     if (item.title) u.searchParams.set("title", item.title);
     return u.href;

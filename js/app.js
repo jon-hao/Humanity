@@ -311,7 +311,7 @@
     stashPlay(item);
     const sa = captureSafeArea() || { top: 54, right: 16, bottom: 24, left: 16 };
     const u = new URL("player.html", location.href);
-    u.searchParams.set("v", "25");
+    u.searchParams.set("v", "26");
     u.searchParams.set(
       "sa",
       [sa.top, sa.right, sa.bottom, sa.left]

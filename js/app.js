@@ -295,7 +295,7 @@
       // 移动端状态栏高度兜底：env 偶发为 0 时按钮仍会被裁切
       const narrow = Math.min(window.innerWidth, window.innerHeight) <= 900;
       if (narrow) {
-        insets.top = Math.max(insets.top, 62);
+        insets.top = Math.max(insets.top, 54);
         insets.bottom = Math.max(insets.bottom, 28);
         insets.left = Math.max(insets.left, 16);
         insets.right = Math.max(insets.right, 16);
@@ -309,9 +309,9 @@
 
   function playerUrl(item) {
     stashPlay(item);
-    const sa = captureSafeArea() || { top: 62, right: 16, bottom: 28, left: 16 };
+    const sa = captureSafeArea() || { top: 54, right: 16, bottom: 28, left: 16 };
     const u = new URL("player.html", location.href);
-    u.searchParams.set("v", "36");
+    u.searchParams.set("v", "37");
     u.searchParams.set(
       "sa",
       [sa.top, sa.right, sa.bottom, sa.left]

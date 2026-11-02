@@ -24,6 +24,8 @@
         --sa-right: env(safe-area-inset-right, 0px);
         --sa-bottom: env(safe-area-inset-bottom, 0px);
         --sa-left: env(safe-area-inset-left, 0px);
+        /* 强制横屏后：手机顶部 = 视频左侧 */
+        --phone-top-pad: 54px;
       }
       * {
         box-sizing: border-box;
@@ -143,19 +145,21 @@
         rotate(90deg) CW 后（CSS 坐标 → 横屏画面）：
         left→画面左=物理顶刘海 / right→画面右=物理底 /
         bottom→画面上 / top→画面下
-        因此顶栏按钮要贴 CSS bottom，而不是 CSS top。
       */
+      .player-root.is-forced-land .stage {
+        left: var(--phone-top-pad);
+      }
       .player-root.is-forced-land .play-chrome {
         top: max(12px, var(--sa-right, 0px));
         right: max(16px, var(--sa-bottom, 0px));
         bottom: max(12px, var(--sa-left, 0px));
-        left: max(16px, var(--sa-top, 0px));
+        left: var(--phone-top-pad);
       }
       .player-root.is-forced-land .gate {
         padding-top: max(24px, calc(var(--sa-right, 0px) + 8px));
         padding-right: max(24px, calc(var(--sa-bottom, 0px) + 8px));
         padding-bottom: max(24px, calc(var(--sa-left, 0px) + 8px));
-        padding-left: max(24px, calc(var(--sa-top, 0px) + 8px));
+        padding-left: var(--phone-top-pad);
       }
       .play-chrome[hidden] {
         display: none !important;
@@ -219,7 +223,7 @@
       }
       .player-root.is-forced-land .related-sheet {
         padding: max(12px, var(--sa-right, 0px)) max(16px, var(--sa-bottom, 0px))
-          max(12px, var(--sa-left, 0px)) max(16px, var(--sa-top, 0px));
+          max(12px, var(--sa-left, 0px)) var(--phone-top-pad);
       }
       .related-sheet[hidden] {
         display: none !important;
@@ -384,9 +388,9 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=36"></script>
-    <script src="./js/api.js?v=36"></script>
-    <script src="./js/preview.js?v=36"></script>
+    <script src="./js/config.js?v=37"></script>
+    <script src="./js/api.js?v=37"></script>
+    <script src="./js/preview.js?v=37"></script>
   </head>
   <body>
     <div class="player-root">

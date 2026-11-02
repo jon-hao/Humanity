@@ -43,7 +43,7 @@
         background: #000;
         overflow: hidden;
       }
-      /* 画面 + 按钮同一层旋转，避免视频横着、控件还按竖屏摆 */
+      /* 画面 + 按钮同一层；竖屏时 JS 旋转铺满，避免 vh 黑边 */
       .stage-wrap {
         position: absolute;
         inset: 0;
@@ -51,20 +51,11 @@
         height: 100%;
         background: #000;
       }
-      /* rotate(90deg) + origin top-left：铺满视口，避免 50% 居中在 iOS vh 上留黑边 */
-      @media (orientation: portrait) and (max-width: 900px) {
-        .stage-wrap {
-          top: 0;
-          left: 100%;
-          right: auto;
-          bottom: auto;
-          width: 100vh;
-          height: 100vw;
-          width: 100dvh;
-          height: 100dvw;
-          transform: rotate(90deg);
-          transform-origin: top left;
-        }
+      .player-root.is-forced-land .stage-wrap {
+        right: auto;
+        bottom: auto;
+        transform: rotate(90deg);
+        transform-origin: center center;
       }
       .stage {
         position: absolute;
@@ -95,6 +86,7 @@
       .gate h1 {
         margin: 0;
         font-size: 1.1rem;
+        max-width: 36rem;
       }
       .gate p {
         margin: 0;
@@ -140,23 +132,32 @@
         }
       }
       /*
-        rotate(90deg) CW 后：
-        CSS top→画面右(物理底) / right→画面下(物理左) /
-        bottom→画面左(物理顶刘海) / left→画面上(物理右)
+        rotate(90deg) CW 后（CSS 坐标 → 横屏画面）：
+        left→画面左=物理顶刘海 / right→画面右=物理底 /
+        bottom→画面上 / top→画面下
+        因此顶栏按钮要贴 CSS bottom，而不是 CSS top。
       */
-      @media (orientation: portrait) and (max-width: 900px) {
-        .play-chrome {
-          top: max(12px, var(--sa-bottom, 0px));
-          right: max(12px, var(--sa-left, 0px));
-          bottom: max(16px, var(--sa-top, 0px));
-          left: max(12px, var(--sa-right, 0px));
-        }
-        .gate {
-          padding-top: max(24px, calc(var(--sa-bottom, 0px) + 8px));
-          padding-right: max(24px, calc(var(--sa-left, 0px) + 8px));
-          padding-bottom: max(24px, calc(var(--sa-top, 0px) + 8px));
-          padding-left: max(24px, calc(var(--sa-right, 0px) + 8px));
-        }
+      .player-root.is-forced-land .play-chrome {
+        top: max(12px, var(--sa-right, 0px));
+        right: max(16px, var(--sa-bottom, 0px));
+        bottom: max(12px, var(--sa-left, 0px));
+        left: max(16px, var(--sa-top, 0px));
+      }
+      .player-root.is-forced-land .gate {
+        padding-top: max(24px, calc(var(--sa-right, 0px) + 8px));
+        padding-right: max(24px, calc(var(--sa-bottom, 0px) + 8px));
+        padding-bottom: max(24px, calc(var(--sa-left, 0px) + 8px));
+        padding-left: max(24px, calc(var(--sa-top, 0px) + 8px));
+      }
+      .player-root.is-forced-land .chrome-left {
+        top: auto;
+        bottom: 0;
+        left: 0;
+      }
+      .player-root.is-forced-land .chrome-close {
+        top: auto;
+        bottom: 0;
+        right: 0;
       }
       .play-chrome[hidden] {
         display: none !important;
@@ -218,11 +219,9 @@
         padding: max(12px, var(--sa-top, 0px)) max(12px, var(--sa-right, 0px))
           max(12px, var(--sa-bottom, 0px)) max(12px, var(--sa-left, 0px));
       }
-      @media (orientation: portrait) and (max-width: 900px) {
-        .related-sheet {
-          padding: max(12px, var(--sa-bottom, 0px)) max(12px, var(--sa-left, 0px))
-            max(16px, var(--sa-top, 0px)) max(12px, var(--sa-right, 0px));
-        }
+      .player-root.is-forced-land .related-sheet {
+        padding: max(12px, var(--sa-right, 0px)) max(16px, var(--sa-bottom, 0px))
+          max(12px, var(--sa-left, 0px)) max(16px, var(--sa-top, 0px));
       }
       .related-sheet[hidden] {
         display: none !important;
@@ -419,9 +418,9 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=29"></script>
-    <script src="./js/api.js?v=29"></script>
-    <script src="./js/preview.js?v=29"></script>
+    <script src="./js/config.js?v=30"></script>
+    <script src="./js/api.js?v=30"></script>
+    <script src="./js/preview.js?v=30"></script>
   </head>
   <body>
     <div class="player-root">
@@ -532,25 +531,27 @@
           const wrap = document.getElementById("stageWrap");
           const root = document.querySelector(".player-root");
           if (!wrap || !root) return;
-          const forced = window.matchMedia(
-            "(orientation: portrait) and (max-width: 900px)"
-          ).matches;
+          const vw = Math.round(
+            root.clientWidth || window.innerWidth || document.documentElement.clientWidth || 0
+          );
+          const vh = Math.round(
+            root.clientHeight || window.innerHeight || document.documentElement.clientHeight || 0
+          );
+          const forced = vw > 0 && vh > 0 && vh > vw && Math.min(vw, vh) <= 900;
           if (!forced) {
+            root.classList.remove("is-forced-land");
             wrap.style.width = "";
             wrap.style.height = "";
             wrap.style.top = "";
             wrap.style.left = "";
             return;
           }
-          // 用 player-root 实寸，避免 iOS visualViewport/vh 偏短导致右侧黑边
-          const rect = root.getBoundingClientRect();
-          const vw = Math.round(rect.width || root.clientWidth || 0);
-          const vh = Math.round(rect.height || root.clientHeight || 0);
-          if (vw < 1 || vh < 1) return;
-          wrap.style.top = "0px";
-          wrap.style.left = vw + "px";
+          // 居中旋转：宽=竖屏高、高=竖屏宽，消除右侧黑边
+          root.classList.add("is-forced-land");
           wrap.style.width = vh + "px";
           wrap.style.height = vw + "px";
+          wrap.style.left = Math.round((vw - vh) / 2) + "px";
+          wrap.style.top = Math.round((vh - vw) / 2) + "px";
         }
 
         function showChrome(on) {
@@ -652,27 +653,24 @@
           }
         }
 
-        function sourcePlayerUrl(explicit) {
+        function sourceEmbedUrl(explicit) {
+          // 只返回可 iframe 的 embed；MissAV 源站页有 XFO，不能当 iframe
           if (explicit) return explicit;
-          if (playCtx && playCtx.page) return playCtx.page;
+          if (isMissavCtx()) return null;
           return null;
         }
 
         function canPlayMediaSrc(src) {
           const s = String(src || "");
           if (!s) return false;
-          if (/\.m3u8(\?|#|$)/i.test(s)) {
+          if (/\.m3u8(\?|#|$)/i.test(s) || /[?&]flow=hmedia\b/i.test(s)) {
             return canNativeHls() || !!(window.Hls && window.Hls.isSupported());
           }
           return true;
         }
 
         function showMissavFallback(msg) {
-          const page = sourcePlayerUrl(null);
-          if (page) {
-            mountIframe(page);
-            return;
-          }
+          const page = (playCtx && playCtx.page) || "";
           showChrome(true);
           clearMedia();
           const gate = document.createElement("div");
@@ -681,18 +679,28 @@
             "<h1>" +
             esc(title) +
             "</h1><p>" +
-            esc(msg || "Stream blocked by CDN") +
+            esc(msg || "Stream unavailable") +
             "</p>" +
+            (page
+              ? '<p><a href="' +
+                esc(page) +
+                '" target="_blank" rel="noopener">Open source player</a></p>'
+              : "") +
             '<button type="button" class="gate-close" data-gate-close>Close</button>';
           stage.appendChild(gate);
           const close = gate.querySelector("[data-gate-close]");
           if (close) close.addEventListener("click", closePlayer);
         }
 
-        function mountVideo(src, fallbackEmbed) {
+        function mountVideo(src, fallbackEmbed, opts) {
           destroyHls();
-          const fallback = sourcePlayerUrl(fallbackEmbed);
+          const fallback = sourceEmbedUrl(fallbackEmbed);
+          const altStream = opts && opts.altStream ? opts.altStream : null;
           if (!canPlayMediaSrc(src)) {
+            if (altStream && altStream !== src) {
+              mountVideo(altStream, fallbackEmbed, null);
+              return;
+            }
             if (fallback) mountIframe(fallback);
             else if (isMissavCtx()) showMissavFallback("Video not supported");
             else showGate("Video not supported");
@@ -700,6 +708,7 @@
           }
           clearMedia();
           showChrome(true);
+          syncForcedLandscapeSize();
           const video = document.createElement("video");
           video.controls = true;
           video.autoplay = true;
@@ -710,26 +719,31 @@
           let fellBack = false;
           const onFail = function () {
             if (fellBack) return;
-            fellBack = true;
             destroyHls();
+            if (altStream && altStream !== src) {
+              fellBack = true;
+              mountVideo(altStream, fallbackEmbed, null);
+              return;
+            }
+            fellBack = true;
             if (fallback) mountIframe(fallback);
             else if (isMissavCtx()) {
               showMissavFallback("Video stream unavailable");
             } else showGate("Video stream unavailable");
           };
           video.addEventListener("error", onFail);
-          // 直链被 CDN 挂起时不要一直 Loading
           const stallTimer = setTimeout(function () {
             if (fellBack) return;
             if (video.readyState >= 2) return;
             onFail();
-          }, 8000);
+          }, 10000);
           video.addEventListener("loadeddata", function () {
             clearTimeout(stallTimer);
           });
           stage.appendChild(video);
 
-          const isHls = /\.m3u8(\?|#|$)/i.test(src);
+          const isHls =
+            /\.m3u8(\?|#|$)/i.test(src) || /[?&]flow=hmedia\b/i.test(src);
           if (isHls) {
             if (video.canPlayType("application/vnd.apple.mpegurl")) {
               video.src = src;
@@ -1258,22 +1272,28 @@
           // ch3（Eporner）不适合 video，强制 embed
           const forceEmbed = source === "ch3" || /eporner/i.test(String(embed || ""));
 
-          // MissAV/surrit：机房 hmedia 易被 CF 拦；Safari 可先试原生 HLS，失败再源站页。
           const rawPlayable = !forceEmbed && isPlayableMediaUrl(stream);
           const missav = isMissavCtx() || (playMeta && playMeta.proxy);
-          const fallback = sourcePlayerUrl(embed);
-          if (
-            rawPlayable &&
-            stream &&
-            !missav &&
-            !canNativeHls() &&
-            window.HumanityAPI.needsMediaProxy &&
-            window.HumanityAPI.needsMediaProxy(stream, playMeta)
-          ) {
-            stream = window.HumanityAPI.mediaUrl(stream);
-          }
+          const fallback = sourceEmbedUrl(embed);
 
           if (rawPlayable && stream && canPlayMediaSrc(stream)) {
+            // MissAV：先走 hmedia 同源代理，失败再试直连；源站页无法 iframe
+            if (
+              missav &&
+              window.HumanityAPI.mediaUrl &&
+              !/[?&]flow=hmedia\b/i.test(stream)
+            ) {
+              const proxied = window.HumanityAPI.mediaUrl(stream);
+              mountVideo(proxied, fallback, { altStream: stream });
+              return;
+            }
+            if (
+              !missav &&
+              window.HumanityAPI.needsMediaProxy &&
+              window.HumanityAPI.needsMediaProxy(stream, playMeta)
+            ) {
+              stream = window.HumanityAPI.mediaUrl(stream);
+            }
             mountVideo(stream, fallback);
             return;
           }
@@ -1281,17 +1301,24 @@
             mountIframe(fallback);
             return;
           }
-          showGate("No playable URL");
+          if (missav) showMissavFallback("No playable URL");
+          else showGate("No playable URL");
         }
 
         document.title = title + " · Humanity";
         applySafeAreaFromParent();
-        syncForcedLandscapeSize();
-        window.addEventListener("resize", syncForcedLandscapeSize);
-        window.addEventListener("orientationchange", syncForcedLandscapeSize);
+        function layoutSoon() {
+          syncForcedLandscapeSize();
+          requestAnimationFrame(syncForcedLandscapeSize);
+        }
+        layoutSoon();
+        window.addEventListener("resize", layoutSoon);
+        window.addEventListener("orientationchange", function () {
+          setTimeout(layoutSoon, 50);
+          setTimeout(layoutSoon, 300);
+        });
         if (window.visualViewport) {
-          window.visualViewport.addEventListener("resize", syncForcedLandscapeSize);
-          window.visualViewport.addEventListener("scroll", syncForcedLandscapeSize);
+          window.visualViewport.addEventListener("resize", layoutSoon);
         }
         start();
       })();

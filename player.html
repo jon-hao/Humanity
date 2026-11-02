@@ -37,17 +37,22 @@
         font-family: "Segoe UI", "PingFang SC", sans-serif;
         color: #e8eef8;
       }
-      .stage {
+      .player-root {
         position: fixed;
         inset: 0;
-        width: 100vw;
-        height: 100vh;
         background: #000;
-        z-index: 1;
+        overflow: hidden;
       }
-      /* 只旋转媒体层；控件留在视口坐标，安全区不再被转反 */
+      /* 画面 + 按钮同一层旋转，避免视频横着、控件还按竖屏摆 */
+      .stage-wrap {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+      }
       @media (orientation: portrait) and (max-width: 900px) {
-        .stage {
+        .stage-wrap {
           width: 100vh;
           height: 100vw;
           top: 50%;
@@ -55,6 +60,12 @@
           transform: translate(-50%, -50%) rotate(90deg);
           transform-origin: center center;
         }
+      }
+      .stage {
+        position: absolute;
+        inset: 0;
+        background: #000;
+        z-index: 1;
       }
       video,
       iframe {
@@ -103,21 +114,30 @@
         cursor: pointer;
       }
       .play-chrome {
-        position: fixed;
-        /* iframe 内 env(safe-area-*) 经常是 0，移动端给足最小顶距避开状态栏 */
+        position: absolute;
+        z-index: 6;
+        pointer-events: none;
+        /* 默认：设备已是横屏 / 桌面 */
         top: max(12px, var(--sa-top, 0px));
         right: max(12px, var(--sa-right, 0px));
         bottom: max(12px, var(--sa-bottom, 0px));
         left: max(12px, var(--sa-left, 0px));
-        z-index: 6;
-        pointer-events: none;
       }
-      @media (max-width: 900px) {
+      @media (orientation: landscape) and (max-width: 900px) {
         .play-chrome {
-          top: max(54px, var(--sa-top, 0px));
+          top: max(20px, var(--sa-top, 0px));
           right: max(16px, var(--sa-right, 0px));
-          bottom: max(28px, var(--sa-bottom, 0px));
+          bottom: max(16px, var(--sa-bottom, 0px));
           left: max(16px, var(--sa-left, 0px));
+        }
+      }
+      /* 竖屏强制横屏旋转后：物理顶(刘海)→CSS left，物理底→CSS right */
+      @media (orientation: portrait) and (max-width: 900px) {
+        .play-chrome {
+          top: max(12px, var(--sa-right, 0px));
+          right: max(16px, var(--sa-bottom, 0px));
+          bottom: max(12px, var(--sa-left, 0px));
+          left: max(16px, var(--sa-top, 0px));
         }
       }
       .play-chrome[hidden] {
@@ -169,7 +189,7 @@
         font-size: 1.4rem;
       }
       .related-sheet {
-        position: fixed;
+        position: absolute;
         inset: 0;
         z-index: 12;
         background: rgba(8, 10, 14, 0.96);
@@ -180,10 +200,10 @@
         padding: max(12px, var(--sa-top, 0px)) max(12px, var(--sa-right, 0px))
           max(12px, var(--sa-bottom, 0px)) max(12px, var(--sa-left, 0px));
       }
-      @media (max-width: 900px) {
+      @media (orientation: portrait) and (max-width: 900px) {
         .related-sheet {
-          padding: max(54px, var(--sa-top, 0px)) max(16px, var(--sa-right, 0px))
-            max(28px, var(--sa-bottom, 0px)) max(16px, var(--sa-left, 0px));
+          padding: max(12px, var(--sa-right, 0px)) max(16px, var(--sa-bottom, 0px))
+            max(12px, var(--sa-left, 0px)) max(16px, var(--sa-top, 0px));
         }
       }
       .related-sheet[hidden] {
@@ -349,37 +369,41 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=24"></script>
-    <script src="./js/api.js?v=24"></script>
-    <script src="./js/preview.js?v=24"></script>
+    <script src="./js/config.js?v=25"></script>
+    <script src="./js/api.js?v=25"></script>
+    <script src="./js/preview.js?v=25"></script>
   </head>
   <body>
-    <div class="stage" id="stage"></div>
-    <div class="play-chrome" id="chrome" hidden>
-      <div class="chrome-left">
-        <button type="button" class="chrome-btn" id="favBtn" aria-label="Favorite" title="Favorite">
-          ♥
-        </button>
-        <button
-          type="button"
-          class="chrome-btn chrome-related"
-          id="relatedBtn"
-          aria-label="Related"
-          title="Related"
-        >
-          荐
-        </button>
+    <div class="player-root">
+      <div class="stage-wrap" id="stageWrap">
+        <div class="stage" id="stage"></div>
+        <div class="play-chrome" id="chrome" hidden>
+          <div class="chrome-left">
+            <button type="button" class="chrome-btn" id="favBtn" aria-label="Favorite" title="Favorite">
+              ♥
+            </button>
+            <button
+              type="button"
+              class="chrome-btn chrome-related"
+              id="relatedBtn"
+              aria-label="Related"
+              title="Related"
+            >
+              荐
+            </button>
+          </div>
+          <button type="button" class="chrome-btn chrome-close" id="closeBtn" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div class="related-sheet" id="relatedSheet" hidden>
+          <div class="related-head">
+            <h2 id="relatedTitle">Related</h2>
+            <button type="button" class="chrome-btn" id="relatedClose" aria-label="Close">×</button>
+          </div>
+          <div class="related-body" id="relatedBody"></div>
+        </div>
       </div>
-      <button type="button" class="chrome-btn chrome-close" id="closeBtn" aria-label="Close">
-        ×
-      </button>
-    </div>
-    <div class="related-sheet" id="relatedSheet" hidden>
-      <div class="related-head">
-        <h2 id="relatedTitle">Related</h2>
-        <button type="button" class="chrome-btn" id="relatedClose" aria-label="Close">×</button>
-      </div>
-      <div class="related-body" id="relatedBody"></div>
     </div>
     <script>
       (function () {

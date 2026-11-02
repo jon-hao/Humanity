@@ -385,11 +385,43 @@
         padding: 40px 12px;
         font-size: 0.9rem;
       }
+      /* 源播放器：挡广告蒙层/点击；Play 后短暂放行一次真实点击 */
+      .embed-ad-shield {
+        position: absolute;
+        inset: 0;
+        z-index: 4;
+        display: grid;
+        place-content: center;
+        background: transparent;
+        pointer-events: auto;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .embed-ad-shield.is-pass {
+        pointer-events: none;
+        background: transparent;
+      }
+      .embed-ad-shield.is-pass .embed-play-hit {
+        display: none;
+      }
+      .embed-play-hit {
+        pointer-events: auto;
+        min-width: 120px;
+        padding: 12px 22px;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=28"></script>
-    <script src="./js/api.js?v=28"></script>
-    <script src="./js/preview.js?v=28"></script>
+    <script src="./js/config.js?v=29"></script>
+    <script src="./js/api.js?v=29"></script>
+    <script src="./js/preview.js?v=29"></script>
   </head>
   <body>
     <div class="player-root">
@@ -498,30 +530,25 @@
 
         function syncForcedLandscapeSize() {
           const wrap = document.getElementById("stageWrap");
-          if (!wrap) return;
+          const root = document.querySelector(".player-root");
+          if (!wrap || !root) return;
           const forced = window.matchMedia(
             "(orientation: portrait) and (max-width: 900px)"
           ).matches;
           if (!forced) {
             wrap.style.width = "";
             wrap.style.height = "";
+            wrap.style.top = "";
+            wrap.style.left = "";
             return;
           }
-          const vv = window.visualViewport;
-          const vw = Math.round(
-            (vv && vv.width) ||
-              window.innerWidth ||
-              document.documentElement.clientWidth ||
-              0
-          );
-          const vh = Math.round(
-            (vv && vv.height) ||
-              window.innerHeight ||
-              document.documentElement.clientHeight ||
-              0
-          );
+          // 用 player-root 实寸，避免 iOS visualViewport/vh 偏短导致右侧黑边
+          const rect = root.getBoundingClientRect();
+          const vw = Math.round(rect.width || root.clientWidth || 0);
+          const vh = Math.round(rect.height || root.clientHeight || 0);
           if (vw < 1 || vh < 1) return;
-          // rotate(90deg) CW：CSS 宽→画面高，CSS 高→画面宽
+          wrap.style.top = "0px";
+          wrap.style.left = vw + "px";
           wrap.style.width = vh + "px";
           wrap.style.height = vw + "px";
         }
@@ -625,8 +652,27 @@
           }
         }
 
+        function sourcePlayerUrl(explicit) {
+          if (explicit) return explicit;
+          if (playCtx && playCtx.page) return playCtx.page;
+          return null;
+        }
+
+        function canPlayMediaSrc(src) {
+          const s = String(src || "");
+          if (!s) return false;
+          if (/\.m3u8(\?|#|$)/i.test(s)) {
+            return canNativeHls() || !!(window.Hls && window.Hls.isSupported());
+          }
+          return true;
+        }
+
         function showMissavFallback(msg) {
-          const page = (playCtx && playCtx.page) || "";
+          const page = sourcePlayerUrl(null);
+          if (page) {
+            mountIframe(page);
+            return;
+          }
           showChrome(true);
           clearMedia();
           const gate = document.createElement("div");
@@ -637,20 +683,21 @@
             "</h1><p>" +
             esc(msg || "Stream blocked by CDN") +
             "</p>" +
-            (page
-              ? '<p><a href="' +
-                esc(page) +
-                '" target="_blank" rel="noopener">Open on source</a></p>'
-              : "") +
             '<button type="button" class="gate-close" data-gate-close>Close</button>';
           stage.appendChild(gate);
           const close = gate.querySelector("[data-gate-close]");
           if (close) close.addEventListener("click", closePlayer);
-          if (page) openExternalPage(page);
         }
 
         function mountVideo(src, fallbackEmbed) {
           destroyHls();
+          const fallback = sourcePlayerUrl(fallbackEmbed);
+          if (!canPlayMediaSrc(src)) {
+            if (fallback) mountIframe(fallback);
+            else if (isMissavCtx()) showMissavFallback("Video not supported");
+            else showGate("Video not supported");
+            return;
+          }
           clearMedia();
           showChrome(true);
           const video = document.createElement("video");
@@ -658,24 +705,35 @@
           video.autoplay = true;
           video.playsInline = true;
           video.setAttribute("playsinline", "");
+          video.setAttribute("webkit-playsinline", "");
           if (poster) video.poster = poster;
           let fellBack = false;
           const onFail = function () {
             if (fellBack) return;
             fellBack = true;
             destroyHls();
-            if (fallbackEmbed) mountIframe(fallbackEmbed);
+            if (fallback) mountIframe(fallback);
             else if (isMissavCtx()) {
               showMissavFallback("Video stream unavailable");
             } else showGate("Video stream unavailable");
           };
           video.addEventListener("error", onFail);
+          // 直链被 CDN 挂起时不要一直 Loading
+          const stallTimer = setTimeout(function () {
+            if (fellBack) return;
+            if (video.readyState >= 2) return;
+            onFail();
+          }, 8000);
+          video.addEventListener("loadeddata", function () {
+            clearTimeout(stallTimer);
+          });
           stage.appendChild(video);
 
           const isHls = /\.m3u8(\?|#|$)/i.test(src);
           if (isHls) {
             if (video.canPlayType("application/vnd.apple.mpegurl")) {
               video.src = src;
+              video.play().catch(function () {});
             } else if (window.Hls && window.Hls.isSupported()) {
               hlsObj = new window.Hls({
                 enableWorker: true,
@@ -686,6 +744,7 @@
               hlsObj.loadSource(src);
               hlsObj.attachMedia(video);
               hlsObj.on(window.Hls.Events.MANIFEST_PARSED, function (_e, data) {
+                clearTimeout(stallTimer);
                 lockHlsMax(hlsObj, data && data.levels);
                 video.play().catch(function () {});
               });
@@ -697,14 +756,57 @@
             }
           } else {
             video.src = src;
+            video.play().catch(function () {});
           }
+        }
+
+        function armEmbedAdShield(shield) {
+          if (!shield) return;
+          let passTimer = null;
+          const passThrough = function () {
+            shield.classList.add("is-pass");
+            if (passTimer) clearTimeout(passTimer);
+            // 放行点击让源播放器起播，随后重新挡住广告蒙层
+            passTimer = setTimeout(function () {
+              shield.classList.remove("is-pass");
+            }, 2500);
+          };
+          const hit = shield.querySelector(".embed-play-hit");
+          if (hit) {
+            hit.addEventListener("click", function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              passThrough();
+            });
+          }
+          shield.addEventListener(
+            "click",
+            function (e) {
+              if (shield.classList.contains("is-pass")) return;
+              e.preventDefault();
+              e.stopPropagation();
+            },
+            true
+          );
+          shield.addEventListener(
+            "touchstart",
+            function (e) {
+              if (shield.classList.contains("is-pass")) return;
+              // 非 Play 按钮的触摸一律吞掉，避免点到广告
+              if (e.target && e.target.closest && e.target.closest(".embed-play-hit")) {
+                return;
+              }
+              e.preventDefault();
+              e.stopPropagation();
+            },
+            { capture: true, passive: false }
+          );
         }
 
         function mountIframe(src) {
           destroyHls();
           if (!src) {
-            if (isMissavCtx()) showMissavFallback("No playable URL");
-            else showGate("No playable URL");
+            showGate("No playable URL");
             return;
           }
           clearMedia();
@@ -715,7 +817,19 @@
             "autoplay; fullscreen; picture-in-picture; encrypted-media";
           iframe.allowFullscreen = true;
           iframe.referrerPolicy = "no-referrer";
+          // 禁弹窗/顶层跳转，减少广告外链；仍允许脚本跑源播放器
+          iframe.setAttribute(
+            "sandbox",
+            "allow-scripts allow-same-origin allow-forms allow-presentation allow-downloads"
+          );
           stage.appendChild(iframe);
+
+          const shield = document.createElement("div");
+          shield.className = "embed-ad-shield";
+          shield.innerHTML =
+            '<button type="button" class="embed-play-hit" aria-label="Play">Play</button>';
+          stage.appendChild(shield);
+          armEmbedAdShield(shield);
         }
 
         function readStore(key) {
@@ -1144,10 +1258,10 @@
           // ch3（Eporner）不适合 video，强制 embed
           const forceEmbed = source === "ch3" || /eporner/i.test(String(embed || ""));
 
-          // 先判断原始直链是否可播。MissAV/surrit：AWS 代理会被 CF 拦，
-          // iPhone Safari 原生 HLS 直连用户 IP 才能播，故原生 HLS 或 MissAV 不用 hmedia。
+          // MissAV/surrit：机房 hmedia 易被 CF 拦；Safari 可先试原生 HLS，失败再源站页。
           const rawPlayable = !forceEmbed && isPlayableMediaUrl(stream);
           const missav = isMissavCtx() || (playMeta && playMeta.proxy);
+          const fallback = sourcePlayerUrl(embed);
           if (
             rawPlayable &&
             stream &&
@@ -1159,16 +1273,15 @@
             stream = window.HumanityAPI.mediaUrl(stream);
           }
 
-          if (rawPlayable && stream) {
-            mountVideo(stream, embed);
+          if (rawPlayable && stream && canPlayMediaSrc(stream)) {
+            mountVideo(stream, fallback);
             return;
           }
-          if (embed) {
-            mountIframe(embed);
+          if (fallback) {
+            mountIframe(fallback);
             return;
           }
-          if (isMissavCtx()) showMissavFallback("No playable URL");
-          else showGate("No playable URL");
+          showGate("No playable URL");
         }
 
         document.title = title + " · Humanity";

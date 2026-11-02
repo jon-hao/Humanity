@@ -273,10 +273,37 @@
     } catch (_) {}
   }
 
+  function captureSafeArea() {
+    try {
+      const probe = document.createElement("div");
+      probe.setAttribute("aria-hidden", "true");
+      probe.style.cssText =
+        "position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;" +
+        "padding-top:env(safe-area-inset-top);" +
+        "padding-right:env(safe-area-inset-right);" +
+        "padding-bottom:env(safe-area-inset-bottom);" +
+        "padding-left:env(safe-area-inset-left);";
+      document.body.appendChild(probe);
+      const cs = getComputedStyle(probe);
+      const insets = {
+        top: parseFloat(cs.paddingTop) || 0,
+        right: parseFloat(cs.paddingRight) || 0,
+        bottom: parseFloat(cs.paddingBottom) || 0,
+        left: parseFloat(cs.paddingLeft) || 0,
+      };
+      probe.remove();
+      localStorage.setItem("humanity-safe-area", JSON.stringify(insets));
+      return insets;
+    } catch (_) {
+      return null;
+    }
+  }
+
   function playerUrl(item) {
     stashPlay(item);
+    captureSafeArea();
     const u = new URL("player.html", location.href);
-    u.searchParams.set("v", "22");
+    u.searchParams.set("v", "23");
     if (item.id) u.searchParams.set("id", item.id);
     if (item.title) u.searchParams.set("title", item.title);
     return u.href;
@@ -782,6 +809,7 @@
   async function boot() {
     applyTheme();
     applyLang();
+    captureSafeArea();
     const route = readRoute();
     mountSources(sourceOptions, route.source || readCachedSources());
     if (window.HumanityAPI.getToken()) {

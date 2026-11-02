@@ -20,6 +20,10 @@
     <style>
       :root {
         color-scheme: dark;
+        --sa-top: env(safe-area-inset-top, 0px);
+        --sa-right: env(safe-area-inset-right, 0px);
+        --sa-bottom: env(safe-area-inset-bottom, 0px);
+        --sa-left: env(safe-area-inset-left, 0px);
       }
       * {
         box-sizing: border-box;
@@ -39,8 +43,9 @@
         width: 100vw;
         height: 100vh;
         background: #000;
+        z-index: 1;
       }
-      /* 竖屏手机：整个播放页（含加载/失败）强制横屏展示 */
+      /* 只旋转媒体层；控件留在视口坐标，安全区不再被转反 */
       @media (orientation: portrait) and (max-width: 900px) {
         .stage {
           width: 100vh;
@@ -49,13 +54,6 @@
           left: 50%;
           transform: translate(-50%, -50%) rotate(90deg);
           transform-origin: center center;
-        }
-        /* rotate(90deg) 后物理安全区映射到元素边：top↔right, right↔bottom, bottom↔left, left↔top */
-        .play-chrome {
-          top: max(10px, env(safe-area-inset-right, 0px));
-          right: max(10px, env(safe-area-inset-bottom, 0px));
-          bottom: max(10px, env(safe-area-inset-left, 0px));
-          left: max(10px, env(safe-area-inset-top, 0px));
         }
       }
       video,
@@ -72,7 +70,7 @@
         display: grid;
         place-content: center;
         gap: 14px;
-        padding: 56px 24px 24px;
+        padding: 24px;
         text-align: center;
       }
       .gate h1 {
@@ -105,11 +103,11 @@
         cursor: pointer;
       }
       .play-chrome {
-        position: absolute;
-        top: max(10px, env(safe-area-inset-top, 0px));
-        right: max(10px, env(safe-area-inset-right, 0px));
-        bottom: max(10px, env(safe-area-inset-bottom, 0px));
-        left: max(10px, env(safe-area-inset-left, 0px));
+        position: fixed;
+        top: max(10px, var(--sa-top));
+        right: max(10px, var(--sa-right));
+        bottom: max(10px, var(--sa-bottom));
+        left: max(10px, var(--sa-left));
         z-index: 6;
         pointer-events: none;
       }
@@ -162,7 +160,7 @@
         font-size: 1.4rem;
       }
       .related-sheet {
-        position: absolute;
+        position: fixed;
         inset: 0;
         z-index: 12;
         background: rgba(8, 10, 14, 0.96);
@@ -170,6 +168,8 @@
         display: flex;
         flex-direction: column;
         pointer-events: auto;
+        padding: max(10px, var(--sa-top)) max(10px, var(--sa-right))
+          max(10px, var(--sa-bottom)) max(10px, var(--sa-left));
       }
       .related-sheet[hidden] {
         display: none !important;
@@ -334,38 +334,37 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=22"></script>
-    <script src="./js/api.js?v=22"></script>
-    <script src="./js/preview.js?v=22"></script>
+    <script src="./js/config.js?v=23"></script>
+    <script src="./js/api.js?v=23"></script>
+    <script src="./js/preview.js?v=23"></script>
   </head>
   <body>
-    <div class="stage" id="stage">
-      <div class="play-chrome" id="chrome" hidden>
-        <div class="chrome-left">
-          <button type="button" class="chrome-btn" id="favBtn" aria-label="Favorite" title="Favorite">
-            ♥
-          </button>
-          <button
-            type="button"
-            class="chrome-btn chrome-related"
-            id="relatedBtn"
-            aria-label="Related"
-            title="Related"
-          >
-            荐
-          </button>
-        </div>
-        <button type="button" class="chrome-btn chrome-close" id="closeBtn" aria-label="Close">
-          ×
+    <div class="stage" id="stage"></div>
+    <div class="play-chrome" id="chrome" hidden>
+      <div class="chrome-left">
+        <button type="button" class="chrome-btn" id="favBtn" aria-label="Favorite" title="Favorite">
+          ♥
+        </button>
+        <button
+          type="button"
+          class="chrome-btn chrome-related"
+          id="relatedBtn"
+          aria-label="Related"
+          title="Related"
+        >
+          荐
         </button>
       </div>
-      <div class="related-sheet" id="relatedSheet" hidden>
-        <div class="related-head">
-          <h2 id="relatedTitle">Related</h2>
-          <button type="button" class="chrome-btn" id="relatedClose" aria-label="Close">×</button>
-        </div>
-        <div class="related-body" id="relatedBody"></div>
+      <button type="button" class="chrome-btn chrome-close" id="closeBtn" aria-label="Close">
+        ×
+      </button>
+    </div>
+    <div class="related-sheet" id="relatedSheet" hidden>
+      <div class="related-head">
+        <h2 id="relatedTitle">Related</h2>
+        <button type="button" class="chrome-btn" id="relatedClose" aria-label="Close">×</button>
       </div>
+      <div class="related-body" id="relatedBody"></div>
     </div>
     <script>
       (function () {
@@ -402,6 +401,24 @@
             .replace(/"/g, "&quot;");
         }
 
+        function applySafeAreaFromParent() {
+          // iframe 内 env(safe-area-*) 常为 0，用父页写入的实测值兜底
+          try {
+            const raw = localStorage.getItem("humanity-safe-area");
+            if (!raw) return;
+            const o = JSON.parse(raw);
+            if (!o || typeof o !== "object") return;
+            const root = document.documentElement.style;
+            if (o.top != null) root.setProperty("--sa-top", Number(o.top) + "px");
+            if (o.right != null)
+              root.setProperty("--sa-right", Number(o.right) + "px");
+            if (o.bottom != null)
+              root.setProperty("--sa-bottom", Number(o.bottom) + "px");
+            if (o.left != null)
+              root.setProperty("--sa-left", Number(o.left) + "px");
+          } catch (_) {}
+        }
+
         function showChrome(on) {
           if (!chrome) return;
           chrome.hidden = !on;
@@ -409,16 +426,17 @@
 
         function clearMedia() {
           Array.from(stage.children).forEach((el) => {
-            if (
-              el === chrome ||
-              el === relatedSheet ||
-              el.id === "chrome" ||
-              el.id === "relatedSheet"
-            ) {
-              return;
-            }
             el.remove();
           });
+        }
+
+        function canNativeHls() {
+          try {
+            const v = document.createElement("video");
+            return !!v.canPlayType("application/vnd.apple.mpegurl");
+          } catch (_) {
+            return false;
+          }
         }
 
         function showGate(msg, linkMode) {
@@ -1019,11 +1037,15 @@
           // ch3（Eporner）不适合 video，强制 embed
           const forceEmbed = source === "ch3" || /eporner/i.test(String(embed || ""));
 
-          // 先判断原始直链是否可播，再包 hmedia 代理（代理 URL 不再带 .m3u8 后缀）
+          // 先判断原始直链是否可播。MissAV/surrit：AWS 代理会被 CF 拦，
+          // iPhone Safari 原生 HLS 直连用户 IP 才能播，故原生 HLS 或 MissAV 不用 hmedia。
           const rawPlayable = !forceEmbed && isPlayableMediaUrl(stream);
+          const missav = isMissavCtx() || (playMeta && playMeta.proxy);
           if (
             rawPlayable &&
             stream &&
+            !missav &&
+            !canNativeHls() &&
             window.HumanityAPI.needsMediaProxy &&
             window.HumanityAPI.needsMediaProxy(stream, playMeta)
           ) {
@@ -1043,6 +1065,7 @@
         }
 
         document.title = title + " · Humanity";
+        applySafeAreaFromParent();
         start();
       })();
     </script>

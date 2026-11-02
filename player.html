@@ -31,19 +31,27 @@
       html,
       body {
         margin: 0;
+        width: 100%;
         height: 100%;
-        background: #0c0f14;
+        min-height: 100%;
+        min-height: -webkit-fill-available;
+        min-height: 100dvh;
+        background: #000;
         overflow: hidden;
         font-family: "Segoe UI", "PingFang SC", sans-serif;
         color: #e8eef8;
+        position: fixed;
+        inset: 0;
       }
       .player-root {
         position: fixed;
         inset: 0;
+        width: 100%;
+        height: 100%;
         background: #000;
         overflow: hidden;
       }
-      /* 画面 + 按钮同一层；竖屏时 JS 旋转铺满，避免 vh 黑边 */
+      /* 画面 + 按钮同一层；竖屏时 JS 旋转铺满 */
       .stage-wrap {
         position: absolute;
         inset: 0;
@@ -374,43 +382,11 @@
         padding: 40px 12px;
         font-size: 0.9rem;
       }
-      /* 源播放器：挡广告蒙层/点击；Play 后短暂放行一次真实点击 */
-      .embed-ad-shield {
-        position: absolute;
-        inset: 0;
-        z-index: 4;
-        display: grid;
-        place-content: center;
-        background: transparent;
-        pointer-events: auto;
-        -webkit-tap-highlight-color: transparent;
-      }
-      .embed-ad-shield.is-pass {
-        pointer-events: none;
-        background: transparent;
-      }
-      .embed-ad-shield.is-pass .embed-play-hit {
-        display: none;
-      }
-      .embed-play-hit {
-        pointer-events: auto;
-        min-width: 120px;
-        padding: 12px 22px;
-        border: 1px solid rgba(255, 255, 255, 0.28);
-        border-radius: 999px;
-        background: rgba(0, 0, 0, 0.55);
-        color: #fff;
-        font-size: 1rem;
-        font-weight: 700;
-        cursor: pointer;
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-      }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=31"></script>
-    <script src="./js/api.js?v=31"></script>
-    <script src="./js/preview.js?v=31"></script>
+    <script src="./js/config.js?v=32"></script>
+    <script src="./js/api.js?v=32"></script>
+    <script src="./js/preview.js?v=32"></script>
   </head>
   <body>
     <div class="player-root">
@@ -521,27 +497,46 @@
           const wrap = document.getElementById("stageWrap");
           const root = document.querySelector(".player-root");
           if (!wrap || !root) return;
-          const vw = Math.round(
-            root.clientWidth || window.innerWidth || document.documentElement.clientWidth || 0
+          // 取多种视口量里的最大值，避免 iOS iframe/地址栏让一边偏短 → 右侧黑边
+          const vw = Math.ceil(
+            Math.max(
+              root.clientWidth,
+              root.offsetWidth,
+              window.innerWidth || 0,
+              document.documentElement.clientWidth || 0,
+              (window.visualViewport && window.visualViewport.width) || 0
+            )
           );
-          const vh = Math.round(
-            root.clientHeight || window.innerHeight || document.documentElement.clientHeight || 0
+          const vh = Math.ceil(
+            Math.max(
+              root.clientHeight,
+              root.offsetHeight,
+              window.innerHeight || 0,
+              document.documentElement.clientHeight || 0,
+              (window.visualViewport && window.visualViewport.height) || 0
+            )
           );
           const forced = vw > 0 && vh > 0 && vh > vw && Math.min(vw, vh) <= 900;
           if (!forced) {
             root.classList.remove("is-forced-land");
-            wrap.style.width = "";
-            wrap.style.height = "";
-            wrap.style.top = "";
-            wrap.style.left = "";
+            wrap.style.cssText = "";
             return;
           }
-          // 居中旋转：宽=竖屏高、高=竖屏宽，消除右侧黑边
+          // 居中旋转；多加 2px 吃掉亚像素缝
+          const rw = vh + 2;
+          const rh = vw + 2;
           root.classList.add("is-forced-land");
-          wrap.style.width = vh + "px";
-          wrap.style.height = vw + "px";
-          wrap.style.left = Math.round((vw - vh) / 2) + "px";
-          wrap.style.top = Math.round((vh - vw) / 2) + "px";
+          wrap.style.cssText =
+            "position:absolute;right:auto;bottom:auto;margin:0;" +
+            "width:" +
+            rw +
+            "px;height:" +
+            rh +
+            "px;left:" +
+            (vw - rw) / 2 +
+            "px;top:" +
+            (vh - rh) / 2 +
+            "px;transform:rotate(90deg);transform-origin:center center;background:#000;";
         }
 
         function showChrome(on) {
@@ -764,49 +759,6 @@
           }
         }
 
-        function armEmbedAdShield(shield) {
-          if (!shield) return;
-          let passTimer = null;
-          const passThrough = function () {
-            shield.classList.add("is-pass");
-            if (passTimer) clearTimeout(passTimer);
-            // 放行点击让源播放器起播，随后重新挡住广告蒙层
-            passTimer = setTimeout(function () {
-              shield.classList.remove("is-pass");
-            }, 2500);
-          };
-          const hit = shield.querySelector(".embed-play-hit");
-          if (hit) {
-            hit.addEventListener("click", function (e) {
-              e.preventDefault();
-              e.stopPropagation();
-              passThrough();
-            });
-          }
-          shield.addEventListener(
-            "click",
-            function (e) {
-              if (shield.classList.contains("is-pass")) return;
-              e.preventDefault();
-              e.stopPropagation();
-            },
-            true
-          );
-          shield.addEventListener(
-            "touchstart",
-            function (e) {
-              if (shield.classList.contains("is-pass")) return;
-              // 非 Play 按钮的触摸一律吞掉，避免点到广告
-              if (e.target && e.target.closest && e.target.closest(".embed-play-hit")) {
-                return;
-              }
-              e.preventDefault();
-              e.stopPropagation();
-            },
-            { capture: true, passive: false }
-          );
-        }
-
         function mountIframe(src) {
           destroyHls();
           if (!src) {
@@ -815,25 +767,19 @@
           }
           clearMedia();
           showChrome(true);
+          syncForcedLandscapeSize();
           const iframe = document.createElement("iframe");
           iframe.src = src;
           iframe.allow =
             "autoplay; fullscreen; picture-in-picture; encrypted-media";
           iframe.allowFullscreen = true;
           iframe.referrerPolicy = "no-referrer";
-          // 禁弹窗/顶层跳转，减少广告外链；仍允许脚本跑源播放器
+          // 禁弹窗，减少广告外链；不盖蒙层，避免挡住源站播放按钮
           iframe.setAttribute(
             "sandbox",
             "allow-scripts allow-same-origin allow-forms allow-presentation allow-downloads"
           );
           stage.appendChild(iframe);
-
-          const shield = document.createElement("div");
-          shield.className = "embed-ad-shield";
-          shield.innerHTML =
-            '<button type="button" class="embed-play-hit" aria-label="Play">Play</button>';
-          stage.appendChild(shield);
-          armEmbedAdShield(shield);
         }
 
         function readStore(key) {

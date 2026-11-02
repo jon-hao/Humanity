@@ -51,14 +51,19 @@
         height: 100%;
         background: #000;
       }
+      /* rotate(90deg) + origin top-left：铺满视口，避免 50% 居中在 iOS vh 上留黑边 */
       @media (orientation: portrait) and (max-width: 900px) {
         .stage-wrap {
+          top: 0;
+          left: 100%;
+          right: auto;
+          bottom: auto;
           width: 100vh;
           height: 100vw;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%) rotate(90deg);
-          transform-origin: center center;
+          width: 100dvh;
+          height: 100dvw;
+          transform: rotate(90deg);
+          transform-origin: top left;
         }
       }
       .stage {
@@ -77,12 +82,15 @@
         object-fit: contain;
       }
       .gate {
-        min-height: 100%;
+        position: absolute;
+        inset: 0;
         display: grid;
         place-content: center;
+        justify-items: center;
         gap: 14px;
         padding: 24px;
         text-align: center;
+        box-sizing: border-box;
       }
       .gate h1 {
         margin: 0;
@@ -131,13 +139,23 @@
           left: max(16px, var(--sa-left, 0px));
         }
       }
-      /* 竖屏强制横屏旋转后：物理顶(刘海)→CSS left，物理底→CSS right */
+      /*
+        rotate(90deg) CW 后：
+        CSS top→画面右(物理底) / right→画面下(物理左) /
+        bottom→画面左(物理顶刘海) / left→画面上(物理右)
+      */
       @media (orientation: portrait) and (max-width: 900px) {
         .play-chrome {
-          top: max(12px, var(--sa-right, 0px));
-          right: max(16px, var(--sa-bottom, 0px));
-          bottom: max(12px, var(--sa-left, 0px));
-          left: max(16px, var(--sa-top, 0px));
+          top: max(12px, var(--sa-bottom, 0px));
+          right: max(12px, var(--sa-left, 0px));
+          bottom: max(16px, var(--sa-top, 0px));
+          left: max(12px, var(--sa-right, 0px));
+        }
+        .gate {
+          padding-top: max(24px, calc(var(--sa-bottom, 0px) + 8px));
+          padding-right: max(24px, calc(var(--sa-left, 0px) + 8px));
+          padding-bottom: max(24px, calc(var(--sa-top, 0px) + 8px));
+          padding-left: max(24px, calc(var(--sa-right, 0px) + 8px));
         }
       }
       .play-chrome[hidden] {
@@ -202,8 +220,8 @@
       }
       @media (orientation: portrait) and (max-width: 900px) {
         .related-sheet {
-          padding: max(12px, var(--sa-right, 0px)) max(16px, var(--sa-bottom, 0px))
-            max(12px, var(--sa-left, 0px)) max(16px, var(--sa-top, 0px));
+          padding: max(12px, var(--sa-bottom, 0px)) max(12px, var(--sa-left, 0px))
+            max(16px, var(--sa-top, 0px)) max(12px, var(--sa-right, 0px));
         }
       }
       .related-sheet[hidden] {
@@ -369,9 +387,9 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=27"></script>
-    <script src="./js/api.js?v=27"></script>
-    <script src="./js/preview.js?v=27"></script>
+    <script src="./js/config.js?v=28"></script>
+    <script src="./js/api.js?v=28"></script>
+    <script src="./js/preview.js?v=28"></script>
   </head>
   <body>
     <div class="player-root">
@@ -476,6 +494,36 @@
             if (!raw) return;
             applySafeAreaInsets(JSON.parse(raw));
           } catch (_) {}
+        }
+
+        function syncForcedLandscapeSize() {
+          const wrap = document.getElementById("stageWrap");
+          if (!wrap) return;
+          const forced = window.matchMedia(
+            "(orientation: portrait) and (max-width: 900px)"
+          ).matches;
+          if (!forced) {
+            wrap.style.width = "";
+            wrap.style.height = "";
+            return;
+          }
+          const vv = window.visualViewport;
+          const vw = Math.round(
+            (vv && vv.width) ||
+              window.innerWidth ||
+              document.documentElement.clientWidth ||
+              0
+          );
+          const vh = Math.round(
+            (vv && vv.height) ||
+              window.innerHeight ||
+              document.documentElement.clientHeight ||
+              0
+          );
+          if (vw < 1 || vh < 1) return;
+          // rotate(90deg) CW：CSS 宽→画面高，CSS 高→画面宽
+          wrap.style.width = vh + "px";
+          wrap.style.height = vw + "px";
         }
 
         function showChrome(on) {
@@ -1125,6 +1173,13 @@
 
         document.title = title + " · Humanity";
         applySafeAreaFromParent();
+        syncForcedLandscapeSize();
+        window.addEventListener("resize", syncForcedLandscapeSize);
+        window.addEventListener("orientationchange", syncForcedLandscapeSize);
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", syncForcedLandscapeSize);
+          window.visualViewport.addEventListener("scroll", syncForcedLandscapeSize);
+        }
         start();
       })();
     </script>

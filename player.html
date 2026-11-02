@@ -104,12 +104,21 @@
       }
       .play-chrome {
         position: fixed;
-        top: max(10px, var(--sa-top));
-        right: max(10px, var(--sa-right));
-        bottom: max(10px, var(--sa-bottom));
-        left: max(10px, var(--sa-left));
+        /* iframe 内 env(safe-area-*) 经常是 0，移动端给足最小顶距避开状态栏 */
+        top: max(12px, var(--sa-top, 0px));
+        right: max(12px, var(--sa-right, 0px));
+        bottom: max(12px, var(--sa-bottom, 0px));
+        left: max(12px, var(--sa-left, 0px));
         z-index: 6;
         pointer-events: none;
+      }
+      @media (max-width: 900px) {
+        .play-chrome {
+          top: max(54px, var(--sa-top, 0px));
+          right: max(16px, var(--sa-right, 0px));
+          bottom: max(28px, var(--sa-bottom, 0px));
+          left: max(16px, var(--sa-left, 0px));
+        }
       }
       .play-chrome[hidden] {
         display: none !important;
@@ -168,8 +177,14 @@
         display: flex;
         flex-direction: column;
         pointer-events: auto;
-        padding: max(10px, var(--sa-top)) max(10px, var(--sa-right))
-          max(10px, var(--sa-bottom)) max(10px, var(--sa-left));
+        padding: max(12px, var(--sa-top, 0px)) max(12px, var(--sa-right, 0px))
+          max(12px, var(--sa-bottom, 0px)) max(12px, var(--sa-left, 0px));
+      }
+      @media (max-width: 900px) {
+        .related-sheet {
+          padding: max(54px, var(--sa-top, 0px)) max(16px, var(--sa-right, 0px))
+            max(28px, var(--sa-bottom, 0px)) max(16px, var(--sa-left, 0px));
+        }
       }
       .related-sheet[hidden] {
         display: none !important;
@@ -334,9 +349,9 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=23"></script>
-    <script src="./js/api.js?v=23"></script>
-    <script src="./js/preview.js?v=23"></script>
+    <script src="./js/config.js?v=24"></script>
+    <script src="./js/api.js?v=24"></script>
+    <script src="./js/preview.js?v=24"></script>
   </head>
   <body>
     <div class="stage" id="stage"></div>
@@ -401,21 +416,41 @@
             .replace(/"/g, "&quot;");
         }
 
+        function applySafeAreaInsets(o) {
+          if (!o || typeof o !== "object") return;
+          const root = document.documentElement.style;
+          const set = (key, val) => {
+            const n = Number(val);
+            if (!Number.isFinite(n) || n < 0) return;
+            root.setProperty(key, n + "px");
+          };
+          set("--sa-top", o.top);
+          set("--sa-right", o.right);
+          set("--sa-bottom", o.bottom);
+          set("--sa-left", o.left);
+        }
+
         function applySafeAreaFromParent() {
-          // iframe 内 env(safe-area-*) 常为 0，用父页写入的实测值兜底
+          // 优先 URL 参数（父页打开时写入），再读 localStorage；iframe 内 env 不可靠
+          try {
+            const rawSa = p.get("sa");
+            if (rawSa) {
+              const parts = String(rawSa).split(",");
+              if (parts.length === 4) {
+                applySafeAreaInsets({
+                  top: parts[0],
+                  right: parts[1],
+                  bottom: parts[2],
+                  left: parts[3],
+                });
+                return;
+              }
+            }
+          } catch (_) {}
           try {
             const raw = localStorage.getItem("humanity-safe-area");
             if (!raw) return;
-            const o = JSON.parse(raw);
-            if (!o || typeof o !== "object") return;
-            const root = document.documentElement.style;
-            if (o.top != null) root.setProperty("--sa-top", Number(o.top) + "px");
-            if (o.right != null)
-              root.setProperty("--sa-right", Number(o.right) + "px");
-            if (o.bottom != null)
-              root.setProperty("--sa-bottom", Number(o.bottom) + "px");
-            if (o.left != null)
-              root.setProperty("--sa-left", Number(o.left) + "px");
+            applySafeAreaInsets(JSON.parse(raw));
           } catch (_) {}
         }
 

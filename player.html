@@ -40,14 +40,22 @@
         height: 100vh;
         background: #000;
       }
+      /* 竖屏手机：整个播放页（含加载/失败）强制横屏展示 */
       @media (orientation: portrait) and (max-width: 900px) {
-        .stage.has-media {
+        .stage {
           width: 100vh;
           height: 100vw;
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%) rotate(90deg);
           transform-origin: center center;
+        }
+        /* rotate(90deg) 后物理安全区映射到元素边：top↔right, right↔bottom, bottom↔left, left↔top */
+        .play-chrome {
+          top: max(10px, env(safe-area-inset-right, 0px));
+          right: max(10px, env(safe-area-inset-bottom, 0px));
+          bottom: max(10px, env(safe-area-inset-left, 0px));
+          left: max(10px, env(safe-area-inset-top, 0px));
         }
       }
       video,
@@ -64,7 +72,7 @@
         display: grid;
         place-content: center;
         gap: 14px;
-        padding: 24px;
+        padding: 56px 24px 24px;
         text-align: center;
       }
       .gate h1 {
@@ -80,9 +88,28 @@
       .gate a {
         color: #9ec1ff;
       }
+      .gate-close {
+        pointer-events: auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 120px;
+        margin: 4px auto 0;
+        padding: 10px 18px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #e8eef8;
+        font-size: 0.9rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
       .play-chrome {
         position: absolute;
-        inset: 0;
+        top: max(10px, env(safe-area-inset-top, 0px));
+        right: max(10px, env(safe-area-inset-right, 0px));
+        bottom: max(10px, env(safe-area-inset-bottom, 0px));
+        left: max(10px, env(safe-area-inset-left, 0px));
         z-index: 6;
         pointer-events: none;
       }
@@ -119,8 +146,8 @@
       }
       .chrome-left {
         position: absolute;
-        left: 10px;
-        top: 10px;
+        left: 0;
+        top: 0;
         display: flex;
         gap: 8px;
         pointer-events: none;
@@ -130,8 +157,8 @@
       }
       .chrome-close {
         position: absolute;
-        right: 10px;
-        top: 10px;
+        right: 0;
+        top: 0;
         font-size: 1.4rem;
       }
       .related-sheet {
@@ -307,9 +334,9 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-    <script src="./js/config.js?v=21"></script>
-    <script src="./js/api.js?v=21"></script>
-    <script src="./js/preview.js?v=21"></script>
+    <script src="./js/config.js?v=22"></script>
+    <script src="./js/api.js?v=22"></script>
+    <script src="./js/preview.js?v=22"></script>
   </head>
   <body>
     <div class="stage" id="stage">
@@ -395,7 +422,6 @@
         }
 
         function showGate(msg, linkMode) {
-          stage.classList.remove("has-media");
           showChrome(true);
           clearMedia();
           let extra = "";
@@ -412,8 +438,35 @@
             "</h1><p>" +
             esc(msg || "Unable to play") +
             "</p>" +
-            extra;
+            extra +
+            '<button type="button" class="gate-close" data-gate-close>Close</button>';
           stage.appendChild(gate);
+          const close = gate.querySelector("[data-gate-close]");
+          if (close) close.addEventListener("click", closePlayer);
+        }
+
+        function isPlayableMediaUrl(url) {
+          const s = String(url || "");
+          if (!s || !/^https?:/i.test(s)) return false;
+          if (/[?&]flow=hmedia\b/i.test(s)) return true;
+          if (/\.(mp4|webm|m3u8)(\?|#|$)/i.test(s)) return true;
+          if (/\/dload\/[^/]+\/\d{3,4}\/?/i.test(s)) return true;
+          if (/\/hls\//i.test(s)) return true;
+          if (/get_media\?/i.test(s)) return true;
+          // 代理 URL 里原始地址被 encode 进 u=
+          if (/[?&]u=https?%3A%2F%2F[^&]*%2E(m3u8|mp4|webm)/i.test(s)) return true;
+          if (/[?&]u=https?%3A%2F%2F[^&]*\.(m3u8|mp4|webm)/i.test(s)) return true;
+          return false;
+        }
+
+        function isMissavCtx() {
+          return !!(
+            playCtx &&
+            (playCtx.source === "ch4" ||
+              /missav|surrit/i.test(
+                String(playCtx.source || "") + String(playCtx.page || "")
+              ))
+          );
         }
 
         function destroyHls() {
@@ -449,7 +502,6 @@
 
         function showMissavFallback(msg) {
           const page = (playCtx && playCtx.page) || "";
-          stage.classList.remove("has-media");
           showChrome(true);
           clearMedia();
           const gate = document.createElement("div");
@@ -464,14 +516,16 @@
               ? '<p><a href="' +
                 esc(page) +
                 '" target="_blank" rel="noopener">Open on source</a></p>'
-              : '<p><a href="./">Back</a></p>');
+              : "") +
+            '<button type="button" class="gate-close" data-gate-close>Close</button>';
           stage.appendChild(gate);
+          const close = gate.querySelector("[data-gate-close]");
+          if (close) close.addEventListener("click", closePlayer);
           if (page) openExternalPage(page);
         }
 
         function mountVideo(src, fallbackEmbed) {
           destroyHls();
-          stage.classList.add("has-media");
           clearMedia();
           showChrome(true);
           const video = document.createElement("video");
@@ -486,13 +540,7 @@
             fellBack = true;
             destroyHls();
             if (fallbackEmbed) mountIframe(fallbackEmbed);
-            else if (
-              playCtx &&
-              (playCtx.source === "ch4" ||
-                /missav|surrit/i.test(
-                  String(playCtx.source || "") + String(playCtx.page || "")
-                ))
-            ) {
+            else if (isMissavCtx()) {
               showMissavFallback("Video stream unavailable");
             } else showGate("Video stream unavailable");
           };
@@ -530,10 +578,10 @@
         function mountIframe(src) {
           destroyHls();
           if (!src) {
-            showGate("No playable URL");
+            if (isMissavCtx()) showMissavFallback("No playable URL");
+            else showGate("No playable URL");
             return;
           }
-          stage.classList.add("has-media");
           clearMedia();
           showChrome(true);
           const iframe = document.createElement("iframe");
@@ -941,25 +989,20 @@
 
           refreshSaved();
 
+          let playMeta = null;
           try {
             const d = await window.HumanityAPI.resolvePlay({
               page: playCtx.page || null,
               embed: embed,
               source: source,
             });
+            playMeta = d;
             if (d && d.stream) stream = d.stream;
             else if (d && d.hls) stream = d.hls;
             if (d && d.embed) embed = d.embed;
             if (d && d.source) {
               source = d.source;
               playCtx.source = d.source;
-            }
-            if (
-              stream &&
-              window.HumanityAPI.needsMediaProxy &&
-              window.HumanityAPI.needsMediaProxy(stream, d)
-            ) {
-              stream = window.HumanityAPI.mediaUrl(stream);
             }
           } catch (err) {
             if (err && err.code === 401) {
@@ -976,16 +1019,18 @@
           // ch3（Eporner）不适合 video，强制 embed
           const forceEmbed = source === "ch3" || /eporner/i.test(String(embed || ""));
 
-          const isMedia =
-            !forceEmbed &&
+          // 先判断原始直链是否可播，再包 hmedia 代理（代理 URL 不再带 .m3u8 后缀）
+          const rawPlayable = !forceEmbed && isPlayableMediaUrl(stream);
+          if (
+            rawPlayable &&
             stream &&
-            /^https?:/i.test(stream) &&
-            (/\.(mp4|webm|m3u8)(\?|#|$)/i.test(stream) ||
-              /\/dload\/[^/]+\/\d{3,4}\/?/i.test(stream) ||
-              /\/hls\//i.test(stream) ||
-              /get_media\?/i.test(stream));
+            window.HumanityAPI.needsMediaProxy &&
+            window.HumanityAPI.needsMediaProxy(stream, playMeta)
+          ) {
+            stream = window.HumanityAPI.mediaUrl(stream);
+          }
 
-          if (isMedia) {
+          if (rawPlayable && stream) {
             mountVideo(stream, embed);
             return;
           }
@@ -993,7 +1038,8 @@
             mountIframe(embed);
             return;
           }
-          showGate("No playable URL");
+          if (isMissavCtx()) showMissavFallback("No playable URL");
+          else showGate("No playable URL");
         }
 
         document.title = title + " · Humanity";

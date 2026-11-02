@@ -276,6 +276,7 @@
   function playerUrl(item) {
     stashPlay(item);
     const u = new URL("player.html", location.href);
+    u.searchParams.set("v", "22");
     if (item.id) u.searchParams.set("id", item.id);
     if (item.title) u.searchParams.set("title", item.title);
     return u.href;

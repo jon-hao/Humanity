@@ -989,10 +989,7 @@
     runSearch(null, { reset: false, fromUrl: true });
   });
 
-  els.q.addEventListener("focus", () => {
-    els.q.setAttribute("readonly", "readonly");
-    requestAnimationFrame(() => els.q.removeAttribute("readonly"));
-  });
+  // 勿在 focus 时切换 readonly：部分 iOS / 横屏 WebView 会因此不弹键盘
 
   wirePullToRefresh(els.appScroll, els.ptrApp, async () => {
     if (feedLoaded) await runSearch(null, { reset: false, replaceUrl: true });

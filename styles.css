@@ -390,6 +390,7 @@ select {
 .search-bar input {
   flex: 1;
   min-width: 0;
+  font-size: 16px; /* iOS：小于 16px 易触发缩放并干扰键盘 */
 }
 
 @media (min-width: 720px) {
